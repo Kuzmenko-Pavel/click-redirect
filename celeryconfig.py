@@ -2,11 +2,11 @@
 import sys
 sys.path.append('.')
 
-BROKER_HOST = "localhost"
+BROKER_HOST = "rg.yottos.com"
 BROKER_PORT = 5672
-BROKER_USER = "getmyad_redirect"
+BROKER_USER = "click-redirect"
 BROKER_PASSWORD = "123qwe"
-BROKER_VHOST = "getmyad_redirect_celery"
+BROKER_VHOST = "click-redirect"
 BROKER_CONNECTION_TIMEOUT = 1
 BROKER_CONNECTION_MAX_RETRIES = 2
 CELERY_RESULT_BACKEND = "cache"
