@@ -11,7 +11,7 @@ import pymongo
 import re
 import pymssql
 
-MONGO_HOST = 'srv-2.yottos.com:27018,srv-9.yottos.com:27018,srv-1.yottos.com:27017,srv-8.yottos.com:27018'
+MONGO_HOST = 'srv-5.yottos.com:27018,srv-9.yottos.com:27018,srv-8.yottos.com:27018'
 MONGO_WORKER_HOST_POOL = ['srv-3.yottos.com:27017','srv-6.yottos.com:27017','srv-7.yottos.com:27017','srv-8.yottos.com:27017','srv-9.yottos.com:27017','srv-4.yottos.com:27017']
 MONGO_DATABASE = 'getmyad_db'
 MONGO_WORKER_DATABASE = 'getmyad'
@@ -70,7 +70,7 @@ def currencyCost(currency):
     #app_globals.connection_adload.close()
     return float(row['cost'])
 
-def addClick(offer_id, ip, click_datetime=None, social=None):
+def addClick(offer_id, campaign_id, click_datetime=None, social=None):
     ''' Запись перехода на рекламное предложение ``offer_id`` с адреса
         ``ip`.
 
@@ -110,59 +110,16 @@ def addClick(offer_id, ip, click_datetime=None, social=None):
         connection_adload = mssql_connection_adload()
         cursor = connection_adload.cursor()
         click_cost = 0.0 
-        # Ищем в частных предложениях
-        print "Ищем в частных предложениях"
-        try:
-            cursor.execute('''
-                select Auther, MarketID, Title, ClickCost from Lot
-                where LotID=%s and isAdvertising=1 and isBlock=0 and isTest=1''',
-                offer_id)
-            row = cursor.fetchone()
-            user_id = str(row['Auther'])
-            market_id = str(row['MarketID'])
-            title = row['Title']
-            click_cost = float(row['ClickCost'])
-        except Exception as ex:
-            print "Eexecute Error", ex
-            user_id = None
-            
-        assert user_id is not None
         
         # Записываем переход
         print "Записываем переход"
         social = int(social)
         try:
-            if market_id != 'None':
-                print 'Is Market' , market_id
-                cursor.execute('''exec ViewStatisticAdd @LotID=%s, @locid=0, @Host=%s, @MarketID=%s, @viewUserID=%s, @Title=%s, @Referrer='', @DateView=%s, @Social=%s ''',
-                                (offer_id, ip, market_id, user_id, title, dt, social) )
-            else:
-                print 'Not Market' , market_id
-                cursor.execute('''exec ViewStatisticAdd @LotID=%s, @locid=0, @Host=%s, @viewUserID=%s, @Title=%s, @Referrer='', @DateView=%s, @Social=%s ''',
-                                (offer_id, ip, user_id, title, dt, social) )
+            cursor.execute('''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s ''', (offer_id, campaign_id, dt, social))
+            row = cursor.fetchone()
+            click_cost = float(row['ClickCost'])
         except Exception as ex:
-            print "First ex"
             print ex
-            try:
-                if market_id != 'None':
-                    cursor.execute('''exec ViewStatisticAdd @LotID=%s, @locid=0, @Host=%s, @MarketID=%s, @viewUserID=%s, @Title=%s, @Referrer='', @DateView=%s, @Social=%s ''',
-                                    (offer_id, ip, market_id, user_id, title.encode('cp1251'), dt, social) )
-                else:
-                    cursor.execute('''exec ViewStatisticAdd @LotID=%s, @locid=0, @Host=%s, @viewUserID=%s, @Title=%s, @Referrer='', @DateView=%s, @Social=%s ''',
-                                    (offer_id, ip, user_id, title.encode('cp1251'), dt, social) )
-            except Exception as ex:
-                print "Second ex"
-                print ex
-                try:
-                    if market_id != 'None':
-                        cursor.execute('''exec ViewStatisticAdd @LotID=%s, @locid=0, @Host=%s, @MarketID=%s, @viewUserID=%s, @Title=%s, @Referrer='', @DateView=%s, @Social=%s ''',
-                                        (offer_id, ip, market_id, user_id, '', dt, social) )
-                    else:
-                        cursor.execute('''exec ViewStatisticAdd @LotID=%s, @locid=0, @Host=%s, @viewUserID=%s, @Title=%s, @Referrer='', @DateView=%s, @Social=%s ''',
-                                        (offer_id, ip, user_id, '', dt, social) )
-                except Exception as ex:
-                    print "Thri ex"
-                    print ex
 
         # Пересчёт стоимости клика по курсу
         print "Пересчёт стоимости клика по курсу"
@@ -172,7 +129,7 @@ def addClick(offer_id, ip, click_datetime=None, social=None):
                 click_cost /= currency_cost
             cursor.close()
         else:
-            click_cost = 0
+            click_cost = 0.0
         #app_globals.connection_adload.close()
         print  "Offer: ", offer_id, "Cost - ", click_cost
         return {'ok': True, 'cost': click_cost}
@@ -504,160 +461,89 @@ def process_click(url,
     getmyad_user_id = _get_user_id(informer_id)    
     adload_cost = 0
     cost = 0
-    if project == 'adload':
-        # Сохраняем клик в AdLoad
-        adload_ok = True
-        try:
-            if unique:
-                print "Adload request"
-                adload_response = addClick(offer_id, ip, click_datetime.isoformat(), social)
-                adload_ok = adload_response.get('ok', False)
-                print "Adload OK - %s" % adload_ok
-                if not adload_ok and 'error' in adload_response:
-                    log_error('Adload вернул ошибку: %s' %
-                              adload_response['error'])
-                adload_cost = adload_response.get('cost', 0)
-                print "Adload COST %s" % adload_cost
-        except Exception, ex:
-            adload_ok = False
-            log_error(u'Ошибка при обращении к adload: %s' % str(ex))
-            print "adload failed"
-        # Сохраняем клик в GetMyAd
-        if not social and adload_ok:
-            cost = _partner_click_cost(informer_id, adload_cost) if unique else 0
-            db.clicks.insert({"ip": ip,
-                              "city": city,
-                              "country": country,
-                              "offer": offer_id,
-                              "campaignId": campaign_id,
-                              "campaignTitle": campaign_title,
-                              "title": title,
-                              "dt": click_datetime,
-                              "inf": informer_id,
-                              "account_id": account_id,
-                              "getmyad_user_id": getmyad_user_id,
-                              "unique": unique,
-                              "cost": cost,
-                              "adload_cost": adload_cost,
-                              "income": adload_cost - cost,
-                              "url": url,
-                              "type": type,
-                              "project": project,
-                              "isOnClick": isOnClick,
-                              "branch": branch,
-                              "conformity": conformity,
-                              "matching": matching,
-                              "social":False,
-                              "referer":referer,
-                              "user_agent":user_agent,
-                              "cookie":cookie,
-                              "adload_manager": manager,
-                              "getmyad_manager": manager_g,
-                              "view_seconds":view_seconds},
-                              safe=True)
-            print "Payable click at the price of %s" % cost
-        if social and adload_ok:
-            db.clicks.insert({"ip": ip,
-                              "city": city,
-                              "country": country,
-                              "offer": offer_id,
-                              "campaignId": campaign_id,
-                              "campaignTitle": campaign_title,
-                              "title": title,
-                              "dt": click_datetime,
-                              "inf": informer_id,
-                              "account_id": account_id,
-                              "getmyad_user_id": getmyad_user_id,
-                              "unique": unique,
-                              "cost": cost,
-                              "adload_cost": adload_cost,
-                              "income": adload_cost - cost,
-                              "url": url,
-                              "type": type,
-                              "project": project,
-                              "isOnClick": isOnClick,
-                              "branch": branch,
-                              "conformity": conformity,
-                              "matching": matching,
-                              "social":True,
-                              "referer":referer,
-                              "user_agent":user_agent,
-                              "cookie":cookie,
-                              "adload_manager": manager,
-                              "getmyad_manager": manager_g,
-                              "view_seconds":view_seconds},
-                              safe=True)
-            print "Social click"
-    elif project == 'banner':
-        # Сохраняем клик в GetMyAd
-        if not social:
-            db.clicks.insert({"ip": ip,
-                              "city": city,
-                              "country": country,
-                              "offer": offer_id,
-                              "campaignId": campaign_id,
-                              "campaignTitle": campaign_title,
-                              "title": title,
-                              "dt": click_datetime,
-                              "inf": informer_id,
-                              "account_id": account_id,
-                              "getmyad_user_id": getmyad_user_id,
-                              "unique": unique,
-                              "cost": cost,
-                              "adload_cost": adload_cost,
-                              "income": adload_cost - cost,
-                              "url": url,
-                              "type": type,
-                              "project": project,
-                              "isOnClick": isOnClick,
-                              "branch": branch,
-                              "conformity": conformity,
-                              "matching": matching,
-                              "social":False,
-                              "referer":referer,
-                              "user_agent":user_agent,
-                              "cookie":cookie,
-                              "adload_manager": manager,
-                              "getmyad_manager": manager_g,
-                              "view_seconds":view_seconds},
-                              safe=True)
-            print "Payable click at the price of %s" % cost
-        if social:
-            db.clicks.insert({"ip": ip,
-                              "city": city,
-                              "country": country,
-                              "offer": offer_id,
-                              "campaignId": campaign_id,
-                              "campaignTitle": campaign_title,
-                              "title": title,
-                              "dt": click_datetime,
-                              "inf": informer_id,
-                              "account_id": account_id,
-                              "getmyad_user_id": getmyad_user_id,
-                              "unique": unique,
-                              "cost": cost,
-                              "adload_cost": adload_cost,
-                              "income": adload_cost - cost,
-                              "url": url,
-                              "type": type,
-                              "project": project,
-                              "isOnClick": isOnClick,
-                              "branch": branch,
-                              "conformity": conformity,
-                              "matching": matching,
-                              "social":True,
-                              "referer":referer,
-                              "user_agent":user_agent,
-                              "cookie":cookie,
-                              "adload_manager": manager,
-                              "getmyad_manager": manager_g,
-                              "view_seconds":view_seconds},
-                              safe=True)
-            print "Social click"
-    elif project == 'cleverad':
-        print "CleverAd Click"
-    else:
-        print "HZ"
+    # Сохраняем клик в AdLoad
+    adload_ok = True
+    try:
+        if unique:
+            print "Adload request"
+            adload_response = addClick(offer_id, campaign_id, click_datetime.isoformat(), social)
+            adload_ok = adload_response.get('ok', False)
+            print "Adload OK - %s" % adload_ok
+            if not adload_ok and 'error' in adload_response:
+                log_error('Adload вернул ошибку: %s' %
+                          adload_response['error'])
+            adload_cost = adload_response.get('cost', 0)
+            print "Adload COST %s" % adload_cost
+    except Exception, ex:
+        adload_ok = False
+        log_error(u'Ошибка при обращении к adload: %s' % str(ex))
+        print "adload failed"
+    # Сохраняем клик в GetMyAd
+    if not social and adload_ok:
+        cost = _partner_click_cost(informer_id, adload_cost) if unique else 0
+        db.clicks.insert({"ip": ip,
+                          "city": city,
+                          "country": country,
+                          "offer": offer_id,
+                          "campaignId": campaign_id,
+                          "campaignTitle": campaign_title,
+                          "title": title,
+                          "dt": click_datetime,
+                          "inf": informer_id,
+                          "account_id": account_id,
+                          "getmyad_user_id": getmyad_user_id,
+                          "unique": unique,
+                          "cost": cost,
+                          "adload_cost": adload_cost,
+                          "income": adload_cost - cost,
+                          "url": url,
+                          "type": type,
+                          "project": project,
+                          "isOnClick": isOnClick,
+                          "branch": branch,
+                          "conformity": conformity,
+                          "matching": matching,
+                          "social":False,
+                          "referer":referer,
+                          "user_agent":user_agent,
+                          "cookie":cookie,
+                          "adload_manager": manager,
+                          "getmyad_manager": manager_g,
+                          "view_seconds":view_seconds},
+                          safe=True)
+        print "Payable click at the price of %s" % cost
+    if social and adload_ok:
+        db.clicks.insert({"ip": ip,
+                          "city": city,
+                          "country": country,
+                          "offer": offer_id,
+                          "campaignId": campaign_id,
+                          "campaignTitle": campaign_title,
+                          "title": title,
+                          "dt": click_datetime,
+                          "inf": informer_id,
+                          "account_id": account_id,
+                          "getmyad_user_id": getmyad_user_id,
+                          "unique": unique,
+                          "cost": cost,
+                          "adload_cost": adload_cost,
+                          "income": adload_cost - cost,
+                          "url": url,
+                          "type": type,
+                          "project": project,
+                          "isOnClick": isOnClick,
+                          "branch": branch,
+                          "conformity": conformity,
+                          "matching": matching,
+                          "social":True,
+                          "referer":referer,
+                          "user_agent":user_agent,
+                          "cookie":cookie,
+                          "adload_manager": manager,
+                          "getmyad_manager": manager_g,
+                          "view_seconds":view_seconds},
+                          safe=True)
+        print "Social click"
 
     print "Click complite"
     print "/----------------------------------------------------------------------/"
