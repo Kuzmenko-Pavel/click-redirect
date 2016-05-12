@@ -116,6 +116,7 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
         social = int(social)
         try:
             cursor.execute('''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s ''', (offer_id, campaign_id, dt, social))
+            cursor.nextset()
             row = cursor.fetchone()
             click_cost = float(row['ClickCost'])
         except Exception as ex:
