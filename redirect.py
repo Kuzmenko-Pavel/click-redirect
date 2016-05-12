@@ -21,7 +21,7 @@ from trans import trans
 
 sys.stdout = sys.stderr
 
-MONGO_HOST = 'srv-2.yottos.com:27018,srv-9.yottos.com:27018,srv-1.yottos.com:27017,srv-8.yottos.com:27018'
+MONGO_HOST = 'srv-5.yottos.com:27018,srv-9.yottos.com:27018,srv-8.yottos.com:27018'
 
 
 def redirect(environ, start_response):
