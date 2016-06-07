@@ -441,11 +441,15 @@ def process_click(url,
     check_block = _partner_blocked(informer_id)
     if (check_block['block']):
         print "Account block"
+        errorId = 7
+        log_reject(u'Account block')
         return
     if (check_block['filter']):
         print "Account filtered"
         print check_block['time_filter_click']
         if int(view_seconds) < int(check_block['time_filter_click']):
+            errorId = 8
+            log_reject(u"Click %s View Seconds %s" % (int(view_seconds), int(check_block['time_filter_click'])))
             print "Click %s View Seconds %s" % (int(view_seconds), int(check_block['time_filter_click']))
             return
     getmyad_user_id = _get_user_id(informer_id)    
