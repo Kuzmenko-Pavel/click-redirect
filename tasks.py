@@ -132,7 +132,8 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
             cursor.close()
         else:
             click_cost = 0.0
-        #app_globals.connection_adload.close()
+        if not social and click_cost == 0.0:
+            return {'ok': False, 'error': "adload click cost 0"}
         print  "Offer: ", offer_id, "Cost - ", click_cost
         return {'ok': True, 'cost': click_cost}
     
