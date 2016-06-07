@@ -196,7 +196,6 @@ def process_click(url,
                                 'title': title, 'token': token,
                                 'inf': informer_id, 'url': url, 'reason': reason,
                                 'errorId': errorId, 'city': city, 'country': country,
-                                'type': type, 'project': project, 'isOnClick': isOnClick,
                                 'campaignId': campaign_id, 'referer':referer, 'user_agent':user_agent, 'cookie':cookie,
                                 'view_seconds':view_seconds, 'campaignTitle': campaign_title},
                                 safe=True)
@@ -205,7 +204,6 @@ def process_click(url,
                                    'title': title,  'token': token,
                                    'inf': informer_id, 'url': url, 'reason': reason,
                                    'errorId': errorId, 'city': city, 'country': country,
-                                   'type': type, 'project': project, 'isOnClick': isOnClick,
                                    'campaignId': campaign_id, 'referer':referer, 'user_agent':user_agent, 'cookie':cookie,
                                    'view_seconds':view_seconds, 'campaignTitle': campaign_title},
                                    safe=True)
@@ -286,9 +284,6 @@ def process_click(url,
     social = False
     country = 'NOT FOUND'
     city = 'NOT FOUND'
-    type = 'teaser'
-    project = 'adload'
-    isOnClick = True
     branch = 'L0'
     conformity = ''
     matching = ''
@@ -309,9 +304,6 @@ def process_click(url,
                     social = x.get('social', False)
                     country = x.get('country', 'NOT FOUND')
                     city = x.get('region', 'NOT FOUND')
-                    type = x.get('type', 'teaser')
-                    project = x.get('project', 'adload')
-                    isOnClick = x.get('isOnClick', True)
                     branch = x.get('branch', '')
                     conformity = x.get('conformity', '')
                     matching = x.get('matching', '')
@@ -356,8 +348,6 @@ def process_click(url,
         print "Informer = %s" % informer_id.encode('utf-8')
         print "Campaign Title = %s " % campaign_title.encode('utf-8')
         print "CampaignId = %s" % campaign_id.encode('utf-8')
-        print "Project = %s" %  project.encode('utf-8')
-        print "isOnClick = %s" % isOnClick
         print "Branch = %s" % branch
         print "User View-Click = %s" % view_seconds
         print "Manager = %s" % manager    
@@ -366,8 +356,7 @@ def process_click(url,
     if not valid:
         errorId = 1
         log_reject(u'Не совпадает токен или ip')
-        print "token ip false"
-        print "rejected"
+        print "token ip false click rejected"
         return
     print "Geo = country %s, city %s " % (country.encode('utf-8'), city.encode('utf-8'))
     # Ищём IP в чёрном списке
@@ -480,71 +469,43 @@ def process_click(url,
         log_error(u'Ошибка при обращении к adload: %s' % str(ex))
         print "adload failed"
     # Сохраняем клик в GetMyAd
+    click_obj = {"ip": ip,
+                      "city": city,
+                      "country": country,
+                      "offer": offer_id,
+                      "campaignId": campaign_id,
+                      "campaignTitle": campaign_title,
+                      "title": title,
+                      "dt": click_datetime,
+                      "inf": informer_id,
+                      "account_id": account_id,
+                      "getmyad_user_id": getmyad_user_id,
+                      "unique": unique,
+                      "cost": cost,
+                      "adload_cost": adload_cost,
+                      "income": adload_cost - cost,
+                      "url": url,
+                      "branch": branch,
+                      "conformity": conformity,
+                      "matching": matching,
+                      "social":social,
+                      "referer":referer,
+                      "user_agent":user_agent,
+                      "cookie":cookie,
+                      "adload_manager": manager,
+                      "getmyad_manager": manager_g,
+                      "view_seconds":view_seconds}
     if not social and adload_ok:
         cost = _partner_click_cost(informer_id, adload_cost) if unique else 0
-        db.clicks.insert({"ip": ip,
-                          "city": city,
-                          "country": country,
-                          "offer": offer_id,
-                          "campaignId": campaign_id,
-                          "campaignTitle": campaign_title,
-                          "title": title,
-                          "dt": click_datetime,
-                          "inf": informer_id,
-                          "account_id": account_id,
-                          "getmyad_user_id": getmyad_user_id,
-                          "unique": unique,
-                          "cost": cost,
-                          "adload_cost": adload_cost,
-                          "income": adload_cost - cost,
-                          "url": url,
-                          "type": type,
-                          "project": project,
-                          "isOnClick": isOnClick,
-                          "branch": branch,
-                          "conformity": conformity,
-                          "matching": matching,
-                          "social":False,
-                          "referer":referer,
-                          "user_agent":user_agent,
-                          "cookie":cookie,
-                          "adload_manager": manager,
-                          "getmyad_manager": manager_g,
-                          "view_seconds":view_seconds},
-                          safe=True)
         print "Payable click at the price of %s" % cost
-    if social and adload_ok:
-        db.clicks.insert({"ip": ip,
-                          "city": city,
-                          "country": country,
-                          "offer": offer_id,
-                          "campaignId": campaign_id,
-                          "campaignTitle": campaign_title,
-                          "title": title,
-                          "dt": click_datetime,
-                          "inf": informer_id,
-                          "account_id": account_id,
-                          "getmyad_user_id": getmyad_user_id,
-                          "unique": unique,
-                          "cost": cost,
-                          "adload_cost": adload_cost,
-                          "income": adload_cost - cost,
-                          "url": url,
-                          "type": type,
-                          "project": project,
-                          "isOnClick": isOnClick,
-                          "branch": branch,
-                          "conformity": conformity,
-                          "matching": matching,
-                          "social":True,
-                          "referer":referer,
-                          "user_agent":user_agent,
-                          "cookie":cookie,
-                          "adload_manager": manager,
-                          "getmyad_manager": manager_g,
-                          "view_seconds":view_seconds},
-                          safe=True)
+        click_obj['cost'] = cost
+        click_obj['income'] = adload_cost - cost
+    elif social and adload_ok:
         print "Social click"
+    else:
+        print "No click"
+        return
+    db.clicks.insert(click_obj, safe=True)
 
     print "Click complite"
     print "/----------------------------------------------------------------------/"
