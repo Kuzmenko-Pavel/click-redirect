@@ -121,6 +121,7 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
             click_cost = float(row['ClickCost'])
         except Exception as ex:
             print ex
+            return {'ok': False, 'error': str(ex)}
 
         # Пересчёт стоимости клика по курсу
         print "Пересчёт стоимости клика по курсу"
@@ -138,7 +139,6 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
     except Exception, ex:
         print ex
         cursor.close()
-        #app_globals.connection_adload.close()
         return {'ok': False, 'error': str(ex)}
 
 @task
@@ -464,12 +464,14 @@ def process_click(url,
             adload_ok = adload_response.get('ok', False)
             print "Adload OK - %s" % adload_ok
             if not adload_ok and 'error' in adload_response:
+                errorId = 0
                 log_error('Adload вернул ошибку: %s' %
                           adload_response['error'])
             adload_cost = adload_response.get('cost', 0)
             print "Adload COST %s" % adload_cost
     except Exception, ex:
         adload_ok = False
+        errorId = 0
         log_error(u'Ошибка при обращении к adload: %s' % str(ex))
         print "adload failed"
     # Сохраняем клик в GetMyAd
