@@ -1,0 +1,4 @@
+pymongo==2.8
+celery==3.0.25
+pymssql==2.0.1
+trans==2.1.0
