@@ -12,7 +12,9 @@ import re
 import pymssql
 
 MONGO_HOST = 'srv-5.yottos.com:27018,srv-5.yottos.com:27019,srv-5.yottos.com:27020'
-MONGO_WORKER_HOST_POOL = ['srv-3.yottos.com:27017','srv-6.yottos.com:27017','srv-7.yottos.com:27017','srv-8.yottos.com:27017','srv-9.yottos.com:27017']
+MONGO_WORKER_HOST_POOL = ['srv-3.yottos.com:27017','srv-6.yottos.com:27017','srv-7.yottos.com:27017',
+                          'srv-8.yottos.com:27017','srv-9.yottos.com:27017',
+                          'srv-5.yottos.com:27018,srv-5.yottos.com:27019,srv-5.yottos.com:27020']
 MONGO_DATABASE = 'getmyad_db'
 MONGO_WORKER_DATABASE = 'getmyad'
 otype = type
