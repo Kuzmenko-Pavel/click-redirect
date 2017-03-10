@@ -28,10 +28,9 @@ def redirect(environ, start_response):
     def _redirect_to(url, cookie):
         ''' Перенаправление на ``url`` '''
         response_headers = [('Location', url),
-                            #('Connection', 'close'),
                             ('set-cookie',
                              'yottos_unique_id=' + cookie + '; Path=/; Version=1; Max-Age=31536000; Domain=.yottos.com; HttpOnly;')]
-        start_response("301 Moved Permanently", response_headers)
+        start_response("302 Found", response_headers)
         return ""
 
     # Получаем словарь параметров
@@ -54,7 +53,7 @@ def redirect(environ, start_response):
         url = params.get('url', 'https://yottos.com/')
         print "COOKIE ----"
         cookies = Cookie.SimpleCookie()
-        cookies.load(environ['HTTP_COOKIE'])
+        cookies.load(environ.get('HTTP_COOKIE',''))
         cook = cookies.get('yottos_unique_id')
         print cook
         if cook is not None:
@@ -86,11 +85,11 @@ def redirect(environ, start_response):
         print "Valid click %s view_seconds in %s second" % (valid, view_seconds)
         if not valid:
             print "IP %s, cookie %s, token %s, offer id %s, validation -%s-" % (
-            ip, cookie, token, offer_id, params.get('rand', ''))
+                ip, cookie, token, offer_id, params.get('rand', ''))
 
         # Выделяем домен партнёра и добавляем его в целевой url
         print "Выделяем домен партнёра и добавляем его в целевой url"
-        url = utmConverter(url, offer_id, campaign_id, inf_id)
+        url = utmConverter(url, offer_id, campaign_id, inf_id, cookie)
         print "Create Task"
         try:
             tasks.process_click.delay(url=url,
@@ -129,7 +128,7 @@ def redirect(environ, start_response):
         url or 'https://yottos.com/?utm_source=yottos&utm_medium=redirect&utm_campaign=Not%20Valid%20Click', cookie)
 
 
-def utmConverter(url, offer_id, campaign_id, inf_id):
+def utmConverter(url, offer_id, campaign_id, inf_id, cookie):
     offer_info = _get_offer_info(offer_id, campaign_id)
     partner_domain = _get_informer(inf_id)
     offer_title = 'yottos-' + offer_info['title'].encode('utf-8').replace(' ', '_').replace('.', '_').replace(',',
@@ -138,15 +137,18 @@ def utmConverter(url, offer_id, campaign_id, inf_id):
     offer_campaign_title = 'yottos-' + offer_info['campaignTitle'].encode('utf-8').replace(' ', '_').replace('.',
                                                                                                              '_').replace(
         ',', '_').replace(';', '_').replace('!', '_').replace('?', '_')
+    offer_title_trans = urllib.quote(_ful_trans(offer_title))
+    offer_campaign_title_trans = urllib.quote(_ful_trans(offer_campaign_title))
     if offer_info['marker'][1]:
-        offer_title = urllib.quote(_ful_trans(offer_title))
-        offer_campaign_title = urllib.quote(_ful_trans(offer_campaign_title))
+        offer_title = offer_title_trans
+        offer_campaign_title = offer_campaign_title_trans
     else:
         offer_title = urllib.quote(offer_title)
         offer_campaign_title = urllib.quote(offer_campaign_title)
     url = _add_dynamic_param(url, partner_domain, offer_campaign_title, offer_title, offer_info['marker'][2])
     if offer_info['marker'][0]:
-        url = _add_utm_param(url, type, partner_domain, offer_campaign_title, offer_title, offer_info['marker'][2])
+        url = _add_utm_param(url, type, partner_domain, offer_campaign_title, offer_title, offer_info['marker'][2],
+                             cookie, offer_title_trans, offer_campaign_title_trans)
     print url
     return url
 
@@ -245,7 +247,7 @@ def _add_dynamic_param(url, source, campaign, name, hide):
     return urlparse.urlunparse(url_parts)
 
 
-def _add_utm_param(url, type, source, campaign, name, hide):
+def _add_utm_param(url, type, source, campaign, name, hide, cookie, offer_title_trans, offer_campaign_title_trans):
     url_parts = list(urlparse.urlparse(url))
     if not _url_param_safe_check(url_parts[4]):
         return urlparse.urlunparse(url_parts)
@@ -278,6 +280,12 @@ def _add_utm_param(url, type, source, campaign, name, hide):
         query.update({'utm_content': utm_content})
     if not query.has_key('utm_term'):
         query.update({'utm_term': utm_term})
+    if not query.has_key('from'):
+        query.update({'from': 'Yottos'})
+    if not query.has_key('yt_u_id'):
+        query.update({'yt_u_id': cookie})
+    if not query.has_key('_openstat'):
+        query.update({'_openstat': ';'.join([utm_medium, offer_campaign_title_trans, offer_title_trans, utm_source])})
     url_parts[4] = urllib.urlencode(query)
     return urlparse.urlunparse(url_parts)
 
@@ -334,5 +342,3 @@ application = redirect
 if __name__ == '__main__':
     httpd = make_server('', 8000, application)
     httpd.serve_forever()
-
-

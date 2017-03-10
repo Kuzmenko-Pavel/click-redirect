@@ -1,21 +1,20 @@
 # encoding: utf-8
 # This Python file uses the following encoding: utf-8
-from celery.task import task, periodic_task
-import ConfigParser
 import datetime
-import uuid
-import dateutil.parser
-import os
-import socket
-import pymongo
-import re
 import pymssql
+import uuid
+
+import dateutil.parser
+import pymongo
+from celery.task import task
 
 MONGO_HOST = 'srv-5.yottos.com:27018,srv-5.yottos.com:27019,srv-5.yottos.com:27020'
-MONGO_WORKER_HOST_POOL = ['srv-5.yottos.com:27018,srv-5.yottos.com:27019,srv-5.yottos.com:27020', 'srv-2.yottos.loc:27017']
+MONGO_WORKER_HOST_POOL = ['srv-5.yottos.com:27018,srv-5.yottos.com:27019,srv-5.yottos.com:27020',
+                          'srv-2.yottos.loc:27017']
 MONGO_DATABASE = 'getmyad_db'
 MONGO_WORKER_DATABASE = 'getmyad'
 otype = type
+
 
 def _mongo_connection(host):
     u"""Возвращает Connection к серверу MongoDB"""
@@ -28,9 +27,11 @@ def _mongo_connection(host):
         connection = pymongo.Connection(host=host)
     return connection
 
+
 def _mongo_main_db():
     u"""Возвращает подключение к базе данных MongoDB"""
     return _mongo_connection(MONGO_HOST)[MONGO_DATABASE]
+
 
 def _mongo_worker_db_pool():
     u"""Возвращает подключение к базе данных MongoDB"""
@@ -41,6 +42,7 @@ def _mongo_worker_db_pool():
         except Exception as e:
             print e, host
     return pool
+
 
 def mssql_connection_adload():
     pymssql.set_max_connections(450)
@@ -53,6 +55,7 @@ def mssql_connection_adload():
     conn.autocommit(True)
     return conn
 
+
 def currencyCost(currency):
     ''' Возвращает курс валюты ``currency``.
 
@@ -64,11 +67,12 @@ def currencyCost(currency):
     row = cursor.fetchone()
     if not row:
         cursor.close()
-        #app_globals.connection_adload.close()
+        # app_globals.connection_adload.close()
         return 0.0
     cursor.close()
-    #app_globals.connection_adload.close()
+    # app_globals.connection_adload.close()
     return float(row['cost'])
+
 
 def addClick(offer_id, campaign_id, click_datetime=None, social=None):
     ''' Запись перехода на рекламное предложение ``offer_id`` с адреса
@@ -105,17 +109,18 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
 
     if social is None:
         social = False
-    
-    try:        
+
+    try:
         connection_adload = mssql_connection_adload()
         cursor = connection_adload.cursor()
-        click_cost = 0.0 
-        
+        click_cost = 0.0
+
         # Записываем переход
         print "Записываем переход"
         social = int(social)
         try:
-            cursor.execute('''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s ''', (offer_id, campaign_id, dt, social))
+            cursor.execute('''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s ''',
+                           (offer_id, campaign_id, dt, social))
             cursor.nextset()
             row = cursor.fetchone()
             click_cost = float(row['ClickCost'])
@@ -136,11 +141,12 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
             return {'ok': False, 'error': "adload click cost 0"}
         print  "Offer: ", offer_id, "Cost - ", click_cost
         return {'ok': True, 'cost': click_cost}
-    
+
     except Exception, ex:
         print ex
         cursor.close()
         return {'ok': False, 'error': str(ex)}
+
 
 @task
 def process_click(url,
@@ -191,33 +197,36 @@ def process_click(url,
     print "process click %s \t %s" % (ip, click_datetime)
     db = _mongo_main_db()
     pool = _mongo_worker_db_pool()
-    
+
     def log_error(reason):
         db.clicks.error.insert({'ip': ip, 'offer': offer_id, 'dt': click_datetime,
                                 'title': title, 'token': token,
                                 'inf': informer_id, 'url': url, 'reason': reason,
                                 'errorId': errorId, 'city': city, 'country': country,
-                                'campaignId': campaign_id, 'referer':referer, 'user_agent':user_agent, 'cookie':cookie,
-                                'view_seconds':view_seconds, 'campaignTitle': campaign_title},
-                                safe=True)
+                                'campaignId': campaign_id, 'referer': referer, 'user_agent': user_agent,
+                                'cookie': cookie,
+                                'view_seconds': view_seconds, 'campaignTitle': campaign_title},
+                               safe=True)
+
     def log_reject(reason):
         db.clicks.rejected.insert({'ip': ip, 'offer': offer_id, 'dt': click_datetime,
-                                   'title': title,  'token': token,
+                                   'title': title, 'token': token,
                                    'inf': informer_id, 'url': url, 'reason': reason,
                                    'errorId': errorId, 'city': city, 'country': country,
-                                   'campaignId': campaign_id, 'referer':referer, 'user_agent':user_agent, 'cookie':cookie,
-                                   'view_seconds':view_seconds, 'campaignTitle': campaign_title},
-                                   safe=True)
+                                   'campaignId': campaign_id, 'referer': referer, 'user_agent': user_agent,
+                                   'cookie': cookie,
+                                   'view_seconds': view_seconds, 'campaignTitle': campaign_title},
+                                  safe=True)
 
     def _get_user_id(informer_id):
-        user = db.informer.find_one({'guid': informer_id}, ['user',])
-        guid = db.users.find_one({'login':user['user']}, {'guid':1, '_id':0}).get("guid","")
+        user = db.informer.find_one({'guid': informer_id}, ['user', ])
+        guid = db.users.find_one({'login': user['user']}, {'guid': 1, '_id': 0}).get("guid", "")
         print "GetmyadID %s" % guid
         return guid
 
     def _get_manager(informer_id):
-        user = db.informer.find_one({'guid': informer_id}, ['user',])
-        manager_g = db.users.find_one({'login':user['user']}, {'managerGet':1, '_id':0}).get("managerGet","")
+        user = db.informer.find_one({'guid': informer_id}, ['user', ])
+        manager_g = db.users.find_one({'login': user['user']}, {'managerGet': 1, '_id': 0}).get("managerGet", "")
         print "Getmyad Manager %s" % manager_g
         return manager_g
 
@@ -232,37 +241,37 @@ def process_click(url,
                 цены.
         '''
         try:
-            user = db.informer.find_one({'guid': informer_id}, ['user','cost'])
-            if user.get('cost','None') == 'None':
-                userCost = db.users.find_one({'login':user['user']}, {'cost':1, '_id':0})
-                percent = int(userCost.get('cost',{}).get('ALL',{}).get('click',{}).get('percent',50))
-                cost_min = float(userCost.get('cost',{}).get('ALL',{}).get('click',{}).get('cost_min',  0.01))
-                cost_max = float(userCost.get('cost',{}).get('ALL',{}).get('click',{}).get('cost_max', 1.00))
-                print "Account COST percent %s, cost_min %s, cost_max %s"% (percent, cost_min, cost_max)
+            user = db.informer.find_one({'guid': informer_id}, ['user', 'cost'])
+            if user.get('cost', 'None') == 'None':
+                userCost = db.users.find_one({'login': user['user']}, {'cost': 1, '_id': 0})
+                percent = int(userCost.get('cost', {}).get('ALL', {}).get('click', {}).get('percent', 50))
+                cost_min = float(userCost.get('cost', {}).get('ALL', {}).get('click', {}).get('cost_min', 0.01))
+                cost_max = float(userCost.get('cost', {}).get('ALL', {}).get('click', {}).get('cost_max', 1.00))
+                print "Account COST percent %s, cost_min %s, cost_max %s" % (percent, cost_min, cost_max)
             else:
-                percent = int(user.get('cost',{}).get('ALL',{}).get('click',{}).get('percent',50))
-                cost_min = float(user.get('cost',{}).get('ALL',{}).get('click',{}).get('cost_min',  0.01))
-                cost_max = float(user.get('cost',{}).get('ALL',{}).get('click',{}).get('cost_max', 1.00))
-                print "Informer COST percent %s, cost_min %s, cost_max %s"% (percent, cost_min, cost_max)
+                percent = int(user.get('cost', {}).get('ALL', {}).get('click', {}).get('percent', 50))
+                cost_min = float(user.get('cost', {}).get('ALL', {}).get('click', {}).get('cost_min', 0.01))
+                cost_max = float(user.get('cost', {}).get('ALL', {}).get('click', {}).get('cost_max', 1.00))
+                print "Informer COST percent %s, cost_min %s, cost_max %s" % (percent, cost_min, cost_max)
 
             cost = round(adload_cost * percent / 100, 2)
             if cost_min and cost < cost_min:
                 cost = cost_min
             if cost_max and cost > cost_max:
                 cost = cost_max
-        except Exception as e :
+        except Exception as e:
             print e
             cost = 0
         return cost
 
     def _partner_blocked(informer_id):
         user_name = db.informer.find_one({'guid': informer_id}, ['user'])
-        user = db.users.find_one({'login':user_name['user']})
+        user = db.users.find_one({'login': user_name['user']})
         result = {
-                'block': False,
-                'filter': False,
-                'time_filter_click': 15
-                }
+            'block': False,
+            'filter': False,
+            'time_filter_click': 15
+        }
         block = user.get('blocked', False)
         result['time_filter_click'] = user.get('time_filter_click', 15)
         if block:
@@ -277,7 +286,7 @@ def process_click(url,
                 result['block'] = False
         print "Check Account", result
         return result
-        
+
     # С тестовыми кликами ничего не делаем
     title = 'Non Title'
     account_id = None
@@ -289,13 +298,13 @@ def process_click(url,
     conformity = ''
     matching = ''
     test = False
-        
+
     for db2 in pool:
         find = False
         try:
             for x in db2.log.impressions.find({'token': token}):
                 print db2
-                print "ip %s = %s" % (x['ip'],ip)
+                print "ip %s = %s" % (x['ip'], ip)
                 print "id %s = %s" % (x['id'], offer_id)
                 if x['ip'] == ip and x['id'] == offer_id:
                     valid = True
@@ -317,25 +326,27 @@ def process_click(url,
         except Exception as e:
             print e
             pass
-    
+
     if test:
         print "Processed test click from ip %s" % ip
         return
 
     # Определяем кампанию, к которой относится предложение
     try:
-        of = db.offer.find_one({'guid': offer_id}, {'campaignId': True, 'campaignTitle': True, 'category':True, '_id': False})
-        campaign_id = of.get('campaignId',None)
-        campaign_title = of.get('campaignTitle',None)
-        category = of.get('category',None)
-        manager = db.campaign.find_one({'guid': campaign_id}, {'manager':True, '_id': False}).get('manager','').encode('utf-8')
+        of = db.offer.find_one({'guid': offer_id},
+                               {'campaignId': True, 'campaignTitle': True, 'category': True, '_id': False})
+        campaign_id = of.get('campaignId', None)
+        campaign_title = of.get('campaignTitle', None)
+        category = of.get('category', None)
+        manager = db.campaign.find_one({'guid': campaign_id}, {'manager': True, '_id': False}).get('manager',
+                                                                                                   '').encode('utf-8')
 
     except Exception as e:
         print e
         campaign_id = None
         campaign_title = None
         category = None
-    
+
     errorId = 0
     manager_g = _get_manager(informer_id)
     try:
@@ -351,7 +362,7 @@ def process_click(url,
         print "CampaignId = %s" % campaign_id.encode('utf-8')
         print "Branch = %s" % branch
         print "User View-Click = %s" % view_seconds
-        print "Manager = %s" % manager    
+        print "Manager = %s" % manager
     except Exception as e:
         print e
     if not valid:
@@ -366,7 +377,7 @@ def process_click(url,
         print "Blacklisted ip:", ip, cookie
         log_reject("Blacklisted ip")
         return
-    
+
     # Ищем, не было ли кликов по этому товару
     # Заодно проверяем ограничение на MAX_CLICKS_FOR_ONE_DAY переходов в сутки
     # (защита от накруток)
@@ -375,15 +386,19 @@ def process_click(url,
     MAX_CLICKS_FOR_ONE_WEEK = 10
     MAX_CLICKS_FOR_ONE_WEEK_ALL = 10
     unique = True
-    #Проверяе по рекламному блоку за день и неделю
+    # Проверяе по рекламному блоку за день и неделю
     today_clicks = 0
     toweek_clicks = 0
-    for click in db.clicks.find({'ip': ip, 'cookie': cookie, 'inf': informer_id, 'dt': {'$lte': click_datetime, '$gte': (click_datetime - datetime.timedelta(weeks=1))}}).limit(MAX_CLICKS_FOR_ONE_DAY + MAX_CLICKS_FOR_ONE_WEEK):
+    for click in db.clicks.find({'ip': ip, 'cookie': cookie, 'inf': informer_id, 'dt': {'$lte': click_datetime,
+                                                                                        '$gte': (
+                                                                                                    click_datetime - datetime.timedelta(
+                                                                                                    weeks=1))}}).limit(
+                MAX_CLICKS_FOR_ONE_DAY + MAX_CLICKS_FOR_ONE_WEEK):
         if (click_datetime - click['dt']).days == 0:
             today_clicks += 1
             toweek_clicks += 1
         else:
-            toweek_clicks +=1
+            toweek_clicks += 1
 
         if click['offer'] == offer_id:
             unique = False
@@ -404,18 +419,20 @@ def process_click(url,
         log_reject(u'Более %d переходов с РБ за неделю' % MAX_CLICKS_FOR_ONE_WEEK)
         unique = False
         print 'Many Clicks for week to informer'
-        db.blacklist.ip.update({'ip': ip, 'cookie':cookie},
+        db.blacklist.ip.update({'ip': ip, 'cookie': cookie},
                                {'$set': {'dt': datetime.datetime.now()}},
                                upsert=True)
-    #Проверяе по ПС за день и неделю
+    # Проверяе по ПС за день и неделю
     today_clicks_all = 0
     toweek_clicks_all = 0
-    for click in db.clicks.find({'ip': ip, 'cookie': cookie, 'dt': {'$lte': click_datetime, '$gte': (click_datetime - datetime.timedelta(weeks=1))}}).limit(MAX_CLICKS_FOR_ONE_WEEK_ALL + MAX_CLICKS_FOR_ONE_DAY_ALL):
+    for click in db.clicks.find({'ip': ip, 'cookie': cookie, 'dt': {'$lte': click_datetime, '$gte': (
+                click_datetime - datetime.timedelta(weeks=1))}}).limit(
+                MAX_CLICKS_FOR_ONE_WEEK_ALL + MAX_CLICKS_FOR_ONE_DAY_ALL):
         if (click_datetime - click['dt']).days == 0:
             today_clicks_all += 1
             toweek_clicks_all += 1
         else:
-            toweek_clicks_all +=1
+            toweek_clicks_all += 1
 
         if click['offer'] == offer_id:
             unique = False
@@ -453,7 +470,7 @@ def process_click(url,
             log_reject(u"Click %s View Seconds %s" % (int(view_seconds), int(check_block['time_filter_click'])))
             print "Click %s View Seconds %s" % (int(view_seconds), int(check_block['time_filter_click']))
             return
-    getmyad_user_id = _get_user_id(informer_id)    
+    getmyad_user_id = _get_user_id(informer_id)
     adload_cost = 0
     cost = 0
     # Сохраняем клик в AdLoad
@@ -477,31 +494,31 @@ def process_click(url,
         print "adload failed"
     # Сохраняем клик в GetMyAd
     click_obj = {"ip": ip,
-                      "city": city,
-                      "country": country,
-                      "offer": offer_id,
-                      "campaignId": campaign_id,
-                      "campaignTitle": campaign_title,
-                      "title": title,
-                      "dt": click_datetime,
-                      "inf": informer_id,
-                      "account_id": account_id,
-                      "getmyad_user_id": getmyad_user_id,
-                      "unique": unique,
-                      "cost": cost,
-                      "adload_cost": adload_cost,
-                      "income": adload_cost - cost,
-                      "url": url,
-                      "branch": branch,
-                      "conformity": conformity,
-                      "matching": matching,
-                      "social":social,
-                      "referer":referer,
-                      "user_agent":user_agent,
-                      "cookie":cookie,
-                      "adload_manager": manager,
-                      "getmyad_manager": manager_g,
-                      "view_seconds":view_seconds}
+                 "city": city,
+                 "country": country,
+                 "offer": offer_id,
+                 "campaignId": campaign_id,
+                 "campaignTitle": campaign_title,
+                 "title": title,
+                 "dt": click_datetime,
+                 "inf": informer_id,
+                 "account_id": account_id,
+                 "getmyad_user_id": getmyad_user_id,
+                 "unique": unique,
+                 "cost": cost,
+                 "adload_cost": adload_cost,
+                 "income": adload_cost - cost,
+                 "url": url,
+                 "branch": branch,
+                 "conformity": conformity,
+                 "matching": matching,
+                 "social": social,
+                 "referer": referer,
+                 "user_agent": user_agent,
+                 "cookie": cookie,
+                 "adload_manager": manager,
+                 "getmyad_manager": manager_g,
+                 "view_seconds": view_seconds}
     if not social and adload_ok:
         cost = _partner_click_cost(informer_id, adload_cost) if unique else 0
         print "Payable click at the price of %s" % cost
