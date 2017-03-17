@@ -74,7 +74,7 @@ def currencyCost(currency):
     return float(row['cost'])
 
 
-def addClick(offer_id, campaign_id, click_datetime=None, social=None):
+def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_percent_click=None):
     ''' Запись перехода на рекламное предложение ``offer_id`` с адреса
         ``ip`.
 
@@ -110,6 +110,8 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
     if social is None:
         social = False
 
+    if cost_percent_click is None:
+        cost_percent_click = 100
     try:
         connection_adload = mssql_connection_adload()
         cursor = connection_adload.cursor()
@@ -119,11 +121,12 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
         print "Записываем переход"
         social = int(social)
         try:
-            cursor.execute('''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s ''',
-                           (offer_id, campaign_id, dt, social))
+            cursor.execute('''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s, @CostPercentClick=%s ''',
+                           (offer_id, campaign_id, dt, social, cost_percent_click))
             cursor.nextset()
             row = cursor.fetchone()
             click_cost = float(row['ClickCost'])
+            cursor.close()
         except Exception as ex:
             print ex
             return {'ok': False, 'error': str(ex)}
@@ -134,7 +137,6 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None):
             currency_cost = currencyCost('$')
             if currency_cost > 0:
                 click_cost /= currency_cost
-            cursor.close()
         else:
             click_cost = 0.0
         if not social and click_cost == 0.0:
@@ -270,9 +272,11 @@ def process_click(url,
         result = {
             'block': False,
             'filter': False,
-            'time_filter_click': 15
+            'time_filter_click': 15,
+            'cost_percent_click': 100
         }
         block = user.get('blocked', False)
+        result['cost_percent_click'] = user.get('cost_percent_click', 100)
         result['time_filter_click'] = user.get('time_filter_click', 15)
         if block:
             if block == 'banned':
@@ -457,6 +461,7 @@ def process_click(url,
                                {'$set': {'dt': datetime.datetime.now()}},
                                upsert=True)
     check_block = _partner_blocked(informer_id)
+    cost_percent_click = check_block['cost_percent_click']
     if (check_block['block']):
         print "Account block"
         errorId = 7
@@ -478,7 +483,7 @@ def process_click(url,
     try:
         if unique:
             print "Adload request"
-            adload_response = addClick(offer_id, campaign_id, click_datetime.isoformat(), social)
+            adload_response = addClick(offer_id, campaign_id, click_datetime.isoformat(), social, cost_percent_click)
             adload_ok = adload_response.get('ok', False)
             print "Adload OK - %s" % adload_ok
             if not adload_ok and 'error' in adload_response:
