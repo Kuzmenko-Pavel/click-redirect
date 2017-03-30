@@ -295,10 +295,14 @@ def _get_informer(informer_id):
     try:
         db = pymongo.Connection(MONGO_HOST).getmyad_db
         inf = db.informer.find_one({'guid': informer_id})
+        guid = inf.get('guid')
+        guid_int = inf.get('guid_int')
+        domain = inf.get('domain')
+        domain = domain.replace('.', '_')
         return {
-            'guid': str(inf.get('guid')),
-            'guid_int': str(inf.get('guid_int')),
-            'domain': str(inf.get('domain')).replace('.', '_')
+            'guid': str(guid),
+            'guid_int': str(guid_int),
+            'domain': str(domain.encode('utf8'))
         }
     except (AttributeError, KeyError):
         return {
