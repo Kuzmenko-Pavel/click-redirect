@@ -301,17 +301,14 @@ def process_click(url,
     branch = 'L0'
     conformity = ''
     matching = ''
+    request = ''
     test = False
 
     for db2 in pool:
         find = False
         try:
             for x in db2.log.impressions.find({'token': token}):
-                print db2
-                print "ip %s = %s" % (x['ip'], ip)
-                print "id %s = %s" % (x['id'], offer_id)
                 if x['ip'] == ip and x['id'] == offer_id:
-                    valid = True
                     title = x.get('title', 'Non Title')
                     account_id = x.get('account_id', None)
                     campaignTitle = x.get('campaignTitle', 'Non Title')
@@ -322,6 +319,7 @@ def process_click(url,
                     conformity = x.get('conformity', '')
                     matching = x.get('matching', '')
                     test = x.get('test', False)
+                    request = x.get('request', '')
                     find = True
                     break
 
@@ -330,6 +328,8 @@ def process_click(url,
         except Exception as e:
             print e
             pass
+        if find:
+            break
 
     if test:
         print "Processed test click from ip %s" % ip
@@ -380,6 +380,11 @@ def process_click(url,
         errorId = 2
         print "Blacklisted ip:", ip, cookie
         log_reject("Blacklisted ip")
+        return
+
+    if not find:
+        print "Processed click from ip %s not found" % ip
+        log_reject(u'Not found click')
         return
 
     # Ищем, не было ли кликов по этому товару
@@ -523,7 +528,8 @@ def process_click(url,
                  "cookie": cookie,
                  "adload_manager": manager,
                  "getmyad_manager": manager_g,
-                 "view_seconds": view_seconds}
+                 "view_seconds": view_seconds,
+                 "request": request}
     if not social and adload_ok:
         cost = _partner_click_cost(informer_id, adload_cost) if unique else 0
         print "Payable click at the price of %s" % cost
