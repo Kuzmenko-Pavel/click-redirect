@@ -302,6 +302,9 @@ def process_click(url,
     conformity = ''
     matching = ''
     request = ''
+    capacity = 0
+    view_number = 0
+    exclude_capacity = 0
     test = False
 
     for db2 in pool:
@@ -320,6 +323,9 @@ def process_click(url,
                     matching = x.get('matching', '')
                     test = x.get('test', False)
                     request = x.get('request', '')
+                    capacity = x.get('capacity', 0)
+                    view_number = x.get('view_number', 0)
+                    exclude_capacity = x.get('exclude_capacity', 0)
                     find = True
                     break
 
@@ -528,7 +534,11 @@ def process_click(url,
                  "adload_manager": manager,
                  "getmyad_manager": manager_g,
                  "view_seconds": view_seconds,
-                 "request": request}
+                 "request": request,
+                 "capacity": capacity,
+                 "view_number": view_number,
+                 "exclude_capacity": exclude_capacity
+    }
     if not social and adload_ok:
         cost = _partner_click_cost(informer_id, adload_cost) if unique else 0
         print "Payable click at the price of %s" % cost
