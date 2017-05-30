@@ -385,7 +385,6 @@ def process_click(url,
     if not find:
         print "Processed click from ip %s not found" % ip
         log_reject(u'Not found click')
-        return
 
     # Ищем, не было ли кликов по этому товару
     # Заодно проверяем ограничение на MAX_CLICKS_FOR_ONE_DAY переходов в сутки
