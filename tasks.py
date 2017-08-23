@@ -299,7 +299,8 @@ def process_click(url,
 
     # Определяем кампанию, к которой относится предложение и т.п
     try:
-        campaign = db.campaign.find_one({'guid': campaign_id}, {'manager': True, '_id': False})
+        campaign = db.campaign.find_one({'guid': campaign_id}, {'manager': True, 'account': True, '_id': False})
+        account_id = campaign.get('account', '')
         manager = campaign.get('manager', '').encode('utf-8')
         informer = db.informer.find_one({'guid': informer_id}, {'user': True, '_id': False})
         account_g = db.users.find_one({'login': informer['user']}, {'managerGet': 1,
