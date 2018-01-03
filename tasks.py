@@ -199,7 +199,7 @@ def process_click(url,
     """
     print "/----------------------------------------------------------------------/"
     print "process click %s \t %s" % (ip, click_datetime)
-    if not isinstance(click_datetime, datetime):
+    if not isinstance(click_datetime, datetime.datetime):
         print(type(click_datetime), click_datetime)
 
 
