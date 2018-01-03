@@ -45,10 +45,8 @@ def redirect(environ, start_response):
         base64_encoded_params = environ['QUERY_STRING'].partition('&')[0]
         referer = environ.get('HTTP_REFERER', 'None')
         user_agent = environ.get('HTTP_USER_AGENT', 'None')
-        param_lines = base64.urlsafe_b64decode(base64_encoded_params) \
-            .splitlines()
-        params = dict([(x.partition('=')[0], x.partition('=')[2])
-                       for x in param_lines])
+        param_lines = base64.urlsafe_b64decode(base64_encoded_params).splitlines()
+        params = dict([(x.partition('=')[0], x.partition('=')[2]) for x in param_lines])
         print params
         url = params.get('url', 'https://yottos.com/')
         print "COOKIE ----"
