@@ -3,17 +3,18 @@
 import Cookie
 import base64
 import datetime
-import time
-import unittest
-import urlparse
-import tasks
-import sys
-import pymongo
-import urllib
 import random
 import re
+import sys
+import time
+import urllib
+import urlparse
 from wsgiref.simple_server import make_server
+
 from trans import trans
+import pymongo
+
+import tasks
 
 sys.stdout = sys.stderr
 
@@ -26,7 +27,7 @@ def redirect(environ, start_response):
     cookie = ''
 
     def _redirect_to(url, cookie):
-        ''' Перенаправление на ``url`` '''
+        """ Перенаправление на ``url`` """
         response_headers = [('Location', url),
                             ('set-cookie',
                              'yottos_unique_id=' + cookie + '; Path=/; Version=1; Max-Age=31536000; Domain=.yottos.com; HttpOnly;')]
@@ -126,15 +127,24 @@ def redirect(environ, start_response):
         url or 'https://yottos.com/?utm_source=yottos&utm_medium=redirect&utm_campaign=Not%20Valid%20Click', cookie)
 
 
+def char_replace(string, chars=None, to_char=None):
+    if chars is None:
+        chars = [' ', '.', ',', ';', '!', '?']
+    if to_char is None:
+        to_char = '_'
+    for ch in chars:
+        if ch in string:
+            string = string.replace(ch, to_char)
+    return string
+
+
 def utmConverter(url, offer_id, campaign_id, inf_id, cookie):
     offer_info = _get_offer_info(offer_id, campaign_id)
     partner_domain = _get_informer(inf_id)
-    offer_title = 'yottos-' + offer_info['title'].encode('utf-8').replace(' ', '_').replace('.', '_').replace(',',
-                                                                                                              '_').replace(
-        ';', '_').replace('!', '_').replace('?', '_')
-    offer_campaign_title = 'yottos-' + offer_info['campaignTitle'].encode('utf-8').replace(' ', '_').replace('.',
-                                                                                                             '_').replace(
-        ',', '_').replace(';', '_').replace('!', '_').replace('?', '_')
+    offer_title = 'yottos-' + offer_info['title'].encode('utf-8')
+    offer_title = char_replace(offer_title)
+    offer_campaign_title = 'yottos-' + offer_info['campaignTitle'].encode('utf-8')
+    offer_campaign_title = char_replace(offer_campaign_title)
     offer_title_trans = urllib.quote(_ful_trans(offer_title))
     offer_campaign_title_trans = urllib.quote(_ful_trans(offer_campaign_title))
     if offer_info['marker'][1]:
@@ -176,7 +186,7 @@ def _ful_trans(string):
 
 
 def _add_url_param(url, param, value):
-    ''' Добавляет параметр ``param`` со значением ``value`` в ``url`` если такого параметра не сушествует'''
+    """ Добавляет параметр ``param`` со значением ``value`` в ``url`` если такого параметра не сушествует"""
     url_parts = list(urlparse.urlparse(url))
     query = dict(urlparse.parse_qsl(url_parts[4]))
     if not query.has_key(param):
@@ -289,7 +299,7 @@ def _add_utm_param(url, type, source, campaign, name, hide, cookie, offer_title_
 
 
 def _get_informer(informer_id):
-    ''' Возвращает домен, к которому относится информер ``informer_id`` '''
+    """ Возвращает домен, к которому относится информер ``informer_id`` """
     try:
         db = pymongo.Connection(MONGO_HOST).getmyad_db
         inf = db.informer.find_one({'guid': informer_id})
@@ -317,8 +327,8 @@ def _get_informer(informer_id):
 
 
 def _get_offer_info(offer_id, campaignId):
-    ''' Возвращает True, если к ссылке перехода на рекламное предложение
-        ``offer_id`` необходимо добавить маркер yottos_partner=... '''
+    """ Возвращает True, если к ссылке перехода на рекламное предложение
+        ``offer_id`` необходимо добавить маркер yottos_partner=... """
     result = {'title': '', 'campaignTitle': '', 'marker': [True, False, False]}
     try:
         db = pymongo.Connection(MONGO_HOST).getmyad_db
