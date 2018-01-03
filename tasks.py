@@ -199,6 +199,10 @@ def process_click(url,
     """
     print "/----------------------------------------------------------------------/"
     print "process click %s \t %s" % (ip, click_datetime)
+    if not isinstance(click_datetime, datetime):
+        print(type(click_datetime), click_datetime)
+
+
     db = _mongo_main_db()
     pool = _mongo_worker_db_pool()
 
