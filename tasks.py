@@ -201,6 +201,7 @@ def process_click(url,
     print "process click %s \t %s" % (ip, click_datetime)
     if not isinstance(click_datetime, datetime.datetime):
         print(type(click_datetime), click_datetime)
+        click_datetime = datetime.datetime.strptime(click_datetime, '%Y-%m-%dT%H:%M:%S.%f')
 
 
     db = _mongo_main_db()
