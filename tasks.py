@@ -128,8 +128,10 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_perce
             # cursor.nextset()
             # row = cursor.fetchone()
             # click_cost = float(row['ClickCost'])
-            cursor.callproc('ClickAdd', (offer_id, campaign_id, None, dt, social, cost_percent_click))
-            print cursor
+            r = cursor.callproc('ClickAdd', (offer_id, campaign_id, None, dt, social, cost_percent_click))
+            print r
+            row = cursor.fetchone()
+            print row
             # click_cost = float(row['ClickCost'])
             cursor.close()
         except Exception as ex:
