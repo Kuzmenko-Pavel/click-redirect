@@ -129,7 +129,7 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_perce
             # row = cursor.fetchone()
             # click_cost = float(row['ClickCost'])
             cursor.callproc('ClickAdd', (offer_id, campaign_id, None, dt, social, cost_percent_click))
-            row = cursor.fetchone()
+            row = cursor.fetchall()
             print row
             click_cost = float(row['ClickCost'])
             cursor.close()
