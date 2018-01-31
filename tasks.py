@@ -126,7 +126,6 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_perce
             for row in cursor:
                 print row
                 click_cost = float(row.get('ClickCost', 0.0))
-                print click_cost
             cursor.close()
         except Exception as ex:
             print ex
