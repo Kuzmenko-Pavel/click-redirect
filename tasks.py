@@ -122,13 +122,17 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_perce
         print "Записываем переход"
         social = int(social)
         try:
-            cursor.execute(
-                '''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s, @CostPercentClick=%s ''',
-                (offer_id, campaign_id, dt, social, cost_percent_click))
-            cursor.nextset()
-            row = cursor.fetchone()
-            click_cost = float(row['ClickCost'])
+            # cursor.execute(
+            #     '''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s, @CostPercentClick=%s ''',
+            #     (offer_id, campaign_id, dt, social, cost_percent_click))
+            # cursor.nextset()
+            # row = cursor.fetchone()
+            # click_cost = float(row['ClickCost'])
+            cursor.callproc('ClickAdd', (offer_id, campaign_id, None, dt, social, cost_percent_click))
+            for row in cursor:
+                print row
             cursor.close()
+            raise Exception
         except Exception as ex:
             print ex
             return {'ok': False, 'error': str(ex)}
