@@ -51,7 +51,6 @@ def mssql_connection_adload():
                            user='web',
                            password='odif8duuisdofj',
                            database='1gb_YottosAdLoad',
-                           autocommit=True,
                            as_dict=True,
                            charset='cp1251')
     conn.autocommit(True)
@@ -135,6 +134,7 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_perce
                 for row in cursor:
                     print row
                     click_cost = float(row.get('ClickCost', 0.0))
+            connection_adload.commit()
         except Exception as ex:
             # cursor.close()
             print ex
