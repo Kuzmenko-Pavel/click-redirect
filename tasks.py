@@ -121,19 +121,21 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_perce
         print "Записываем переход"
         social = int(social)
         try:
+            from time import sleep
             with connection_adload.cursor(as_dict=True) as cursor:
                 cursor.callproc('ClickAdd', (offer_id, campaign_id, None, dt, social, cost_percent_click))
+                sleep(10)
                 for row in cursor:
                     print row
                     click_cost = float(row.get('ClickCost', 0.0))
-            cursor = connection_adload.cursor()
-            cursor.execute(
-                '''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s, @CostPercentClick=%s ''',
-                (offer_id, campaign_id, dt, social, cost_percent_click))
-            row = cursor.fetchone()
-            print row, (offer_id, campaign_id, dt, social, cost_percent_click)
-            click_cost = float(row['ClickCost'])
-            cursor.close()
+            # cursor = connection_adload.cursor()
+            # cursor.execute(
+            #     '''exec ClickAdd @LotID=%s, @AdvertiseID=%s, @DateView=%s, @Social=%s, @CostPercentClick=%s ''',
+            #     (offer_id, campaign_id, dt, social, cost_percent_click))
+            # row = cursor.fetchone()
+            # print row, (offer_id, campaign_id, dt, social, cost_percent_click)
+            # click_cost = float(row['ClickCost'])
+            # cursor.close()
         except Exception as ex:
             # cursor.close()
             print ex
