@@ -3,7 +3,6 @@
 import datetime
 import pymssql
 import uuid
-from time import sleep
 
 import dateutil.parser
 import pymongo
@@ -135,9 +134,6 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_perce
                 for row in cursor:
                     print row
                     click_cost = float(row.get('ClickCost', 0.0))
-                sleep(3)
-                connection_adload.commit()
-                sleep(3)
         except Exception as ex:
             # cursor.close()
             print ex
