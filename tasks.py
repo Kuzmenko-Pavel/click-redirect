@@ -124,7 +124,7 @@ def addClick(offer_id, campaign_id, click_datetime=None, social=None, cost_perce
             from time import sleep
             with connection_adload.cursor(as_dict=True) as cursor:
                 cursor.callproc('ClickAdd', (offer_id, campaign_id, None, dt, social, cost_percent_click))
-                sleep(10)
+                sleep(60)
                 for row in cursor:
                     print row
                     click_cost = float(row.get('ClickCost', 0.0))
