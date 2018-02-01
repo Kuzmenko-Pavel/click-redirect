@@ -51,7 +51,7 @@ def mssql_connection_adload():
                            user='web',
                            password='odif8duuisdofj',
                            database='1gb_YottosAdLoad',
-                           autocommit=False,
+                           autocommit=True,
                            as_dict=True,
                            charset='cp1251')
     conn.autocommit(True)
