@@ -234,18 +234,18 @@ def process_click(url,
     pool = _mongo_worker_db_pool()
 
     def log_error(reason):
-        db.clicks.error.insert({'ip': ip, 'offer': offer_id, 'dt': click_datetime, 'token': token,
-                                'inf': informer_id, 'url': url, 'reason': reason,
-                                'error_id': error_id, 'campaignId': campaign_id, 'referer': referer,
-                                'user_agent': user_agent, 'cookie': cookie, 'view_seconds': view_seconds},
-                               safe=True)
+        db.clicks.error.insert_one({'ip': ip, 'offer': offer_id, 'dt': click_datetime, 'token': token,
+                                    'inf': informer_id, 'url': url, 'reason': reason,
+                                    'error_id': error_id, 'campaignId': campaign_id, 'referer': referer,
+                                    'user_agent': user_agent, 'cookie': cookie, 'view_seconds': view_seconds}
+                                   )
 
     def log_reject(reason):
-        db.clicks.rejected.insert({'ip': ip, 'offer': offer_id, 'dt': click_datetime, 'token': token,
-                                   'inf': informer_id, 'url': url, 'reason': reason,
-                                   'error_id': error_id, 'campaignId': campaign_id, 'referer': referer,
-                                   'user_agent': user_agent, 'cookie': cookie, 'view_seconds': view_seconds},
-                                  safe=True)
+        db.clicks.rejected.insert_one({'ip': ip, 'offer': offer_id, 'dt': click_datetime, 'token': token,
+                                       'inf': informer_id, 'url': url, 'reason': reason,
+                                       'error_id': error_id, 'campaignId': campaign_id, 'referer': referer,
+                                       'user_agent': user_agent, 'cookie': cookie, 'view_seconds': view_seconds}
+                                      )
 
     # С тестовыми кликами ничего не делаем
     check_block = {
