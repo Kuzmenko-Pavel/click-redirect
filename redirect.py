@@ -264,8 +264,8 @@ def _add_utm_param(url, ad_type, source, campaign, name, hide, cookie, offer_tit
         query.update({'from': 'Yottos'})
     if 'yt_u_id' not in query:
         query.update({'yt_u_id': cookie})
-    if '_openstat' not in query:
-        query.update({'_openstat': ';'.join([utm_medium, offer_campaign_title_trans, offer_title_trans, utm_source])})
+    # if '_openstat' not in query:
+    #     query.update({'_openstat': ';'.join([utm_medium, offer_campaign_title_trans, offer_title_trans, utm_source])})
     url_parts[4] = urllib.urlencode(query)
     return urlparse.urlunparse(url_parts)
 
