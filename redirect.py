@@ -4,7 +4,6 @@ import Cookie
 import base64
 import datetime
 import random
-import re
 import sys
 import time
 import urllib
@@ -12,7 +11,7 @@ import urlparse
 from wsgiref.simple_server import make_server
 
 from trans import trans
-import pymongo
+from pymongo import MongoClient, errors
 
 import tasks
 
@@ -26,11 +25,10 @@ def redirect(environ, start_response):
     print "START REDIRECT"
     cookie = ''
 
-    def _redirect_to(url, cookie):
+    def _redirect_to(redirect_url, cookie_id):
         """ Перенаправление на ``url`` """
-        response_headers = [('Location', url),
-                            ('set-cookie',
-                             'yottos_unique_id=' + cookie + '; Path=/; Version=1; Max-Age=31536000; Domain=.yottos.com; HttpOnly;')]
+        c = 'yottos_unique_id=' + cookie_id + '; Path=/; Version=1; Max-Age=31536000; Domain=.yottos.com; HttpOnly;'
+        response_headers = [('Location', redirect_url), ('set-cookie', c)]
         start_response("302 Found", response_headers)
         return ""
 
@@ -52,7 +50,7 @@ def redirect(environ, start_response):
         url = params.get('url', 'https://yottos.com/')
         print "COOKIE ----"
         cookies = Cookie.SimpleCookie()
-        cookies.load(environ.get('HTTP_COOKIE',''))
+        cookies.load(environ.get('HTTP_COOKIE', ''))
         cook = cookies.get('yottos_unique_id')
         print cook
         if cook is not None:
@@ -64,7 +62,7 @@ def redirect(environ, start_response):
         print "COOKIE ----"
         print "REFERER ---"
         print referer
-        if referer == 'None' or referer == '' or referer == None:
+        if referer == 'None' or referer == '' or referer is None:
             print environ
         print "REFERER ---"
         print "HTTP_USER_AGENT ---"
@@ -78,7 +76,7 @@ def redirect(environ, start_response):
         inf_id = params.get('inf', '')
         token = params.get('token', '')
         print 'Token:', token
-        valid = True if encryptDecrypt(params.get('rand', ''), ip) == "valid" else False
+        valid = True if encrypt_decrypt(params.get('rand', ''), ip) == "valid" else False
         redirect_datetime = datetime.datetime.now()
         view_seconds = int(params.get('t', 0)) / 1000
         print "Valid click %s view_seconds in %s second" % (valid, view_seconds)
@@ -88,7 +86,7 @@ def redirect(environ, start_response):
 
         # Выделяем домен партнёра и добавляем его в целевой url
         print "Выделяем домен партнёра и добавляем его в целевой url"
-        url = utmConverter(url, offer_id, campaign_id, inf_id, cookie)
+        url = utm_converter(url, offer_id, campaign_id, inf_id, cookie)
         print "Create Task"
         try:
             tasks.process_click.delay(url=url,
@@ -138,7 +136,7 @@ def char_replace(string, chars=None, to_char=None):
     return string
 
 
-def utmConverter(url, offer_id, campaign_id, inf_id, cookie):
+def utm_converter(url, offer_id, campaign_id, inf_id, cookie):
     offer_info = _get_offer_info(offer_id, campaign_id)
     partner_domain = _get_informer(inf_id)
     offer_title = 'yottos-' + offer_info['title'].encode('utf-8')
@@ -161,12 +159,12 @@ def utmConverter(url, offer_id, campaign_id, inf_id, cookie):
     return url
 
 
-def encryptDecrypt(input, ip):
+def encrypt_decrypt(word, ip):
     key = list(ip)
     output = []
 
-    for i in range(len(input)):
-        xor_num = ord(input[i]) ^ ord(key[i % len(key)])
+    for i in range(len(word)):
+        xor_num = ord(word[i]) ^ ord(key[i % len(key)])
         output.append(chr(xor_num))
 
     return ''.join(output)
@@ -181,37 +179,15 @@ def _eu8(string):
 
 
 def _ful_trans(string):
-    trans = _eu8(_u8(string.replace(' ', '-')).encode('trans').lower())
-    return trans
-
-
-def _add_url_param(url, param, value):
-    """ Добавляет параметр ``param`` со значением ``value`` в ``url`` если такого параметра не сушествует"""
-    url_parts = list(urlparse.urlparse(url))
-    query = dict(urlparse.parse_qsl(url_parts[4]))
-    if not query.has_key(param):
-        query.update({param: value})
-    url_parts[4] = urllib.urlencode(query)
-    return urlparse.urlunparse(url_parts)
-
-
-def _url_param_safe_check(param):
-    """
-    Костыль для вот этого рекламодателя bonprix, потому что мы перед ним либизим :))
-    """
-    pattern = '(&{0,}[^&=]{0,}={1}[^&=]{0,})(\?)'
-    if (re.search(pattern, param) is None):
-        safe = True
-    else:
-        safe = False
-    return safe
+    f_trans = _eu8(_u8(string.replace(' ', '-')).encode('trans').lower())
+    return f_trans
 
 
 def _add_dynamic_param(url, source, campaign, name, hide):
     url_parts = list(urlparse.urlparse(url))
 
     params = dict(urlparse.parse_qsl(url_parts[3]))
-    if ((len(params) > 0) and _url_param_safe_check(url_parts[3])):
+    if len(params) > 0:
         for key, value in params.items():
             value = str(value)
             if hide:
@@ -232,7 +208,7 @@ def _add_dynamic_param(url, source, campaign, name, hide):
         url_parts[3] = urllib.urlencode(params)
 
     query = dict(urlparse.parse_qsl(url_parts[4]))
-    if ((len(query) > 0) and _url_param_safe_check(url_parts[4])):
+    if len(query) > 0:
         for key, value in query.items():
             value = str(value)
             if hide:
@@ -255,44 +231,40 @@ def _add_dynamic_param(url, source, campaign, name, hide):
     return urlparse.urlunparse(url_parts)
 
 
-def _add_utm_param(url, type, source, campaign, name, hide, cookie, offer_title_trans, offer_campaign_title_trans):
+def _add_utm_param(url, ad_type, source, campaign, name, hide, cookie, offer_title_trans, offer_campaign_title_trans):
     url_parts = list(urlparse.urlparse(url))
-    if not _url_param_safe_check(url_parts[4]):
-        return urlparse.urlunparse(url_parts)
-    query = dict(urlparse.parse_qsl(url_parts[4]))
 
-    if (type == 'banner'):
+    query = dict(urlparse.parse_qsl(url_parts[4]))
+    utm_medium = 'cpc_yottos'
+    utm_source = source['domain']
+
+    if ad_type == 'banner':
         utm_medium = 'cpm_yottos'
-    else:
-        utm_medium = 'cpc_yottos'
+
     if hide:
         utm_source = source['guid']
-    else:
-        utm_source = source['domain']
 
     utm_campaign = str(campaign)
     utm_content = str(name)
+    utm_term = ''
 
-    if query.has_key('utm_source'):
-        utm_term = utm_source
-    else:
-        utm_term = ''
-
-    if not query.has_key('utm_medium'):
+    if 'utm_medium' not in query:
         query.update({'utm_medium': utm_medium})
-    if not query.has_key('utm_source'):
+    if 'utm_source' not in query:
         query.update({'utm_source': utm_source})
-    if not query.has_key('utm_campaign'):
+    else:
+        utm_term = utm_source
+    if 'utm_campaign' not in query:
         query.update({'utm_campaign': utm_campaign})
-    if not query.has_key('utm_content'):
+    if 'utm_content' not in query:
         query.update({'utm_content': utm_content})
-    if not query.has_key('utm_term'):
+    if 'utm_term' not in query:
         query.update({'utm_term': utm_term})
-    if not query.has_key('from'):
+    if 'from' not in query:
         query.update({'from': 'Yottos'})
-    if not query.has_key('yt_u_id'):
+    if 'yt_u_id' not in query:
         query.update({'yt_u_id': cookie})
-    if not query.has_key('_openstat'):
+    if '_openstat' not in query:
         query.update({'_openstat': ';'.join([utm_medium, offer_campaign_title_trans, offer_title_trans, utm_source])})
     url_parts[4] = urllib.urlencode(query)
     return urlparse.urlunparse(url_parts)
@@ -301,7 +273,7 @@ def _add_utm_param(url, type, source, campaign, name, hide, cookie, offer_title_
 def _get_informer(informer_id):
     """ Возвращает домен, к которому относится информер ``informer_id`` """
     try:
-        db = pymongo.Connection(MONGO_HOST).getmyad_db
+        db = MongoClient(MONGO_HOST).getmyad_db
         inf = db.informer.find_one({'guid': informer_id})
         guid = inf.get('guid')
         guid_int = inf.get('guid_int')
@@ -318,7 +290,7 @@ def _get_informer(informer_id):
             'guid_int': 'None',
             'domain': 'None'
         }
-    except pymongo.errors.AutoReconnect:
+    except errors.AutoReconnect:
         return {
             'guid': 'None',
             'guid_int': 'None',
@@ -326,26 +298,26 @@ def _get_informer(informer_id):
         }
 
 
-def _get_offer_info(offer_id, campaignId):
+def _get_offer_info(offer_id, campaign_id):
     """ Возвращает True, если к ссылке перехода на рекламное предложение
         ``offer_id`` необходимо добавить маркер yottos_partner=... """
     result = {'title': '', 'campaignTitle': '', 'marker': [True, False, False]}
     try:
-        db = pymongo.Connection(MONGO_HOST).getmyad_db
+        db = MongoClient(MONGO_HOST).getmyad_db
         offer = db.offer.find_one({'guid': offer_id}, ['title'])
-        campaign = db.campaign.find_one({'guid': campaignId}, ['title', 'yottosPartnerMarker', 'yottosTranslitMarker',
-                                                               'yottosHideSiteMarker'])
+        campaign = db.campaign.find_one({'guid': campaign_id}, ['title', 'yottosPartnerMarker', 'yottosTranslitMarker',
+                                                                'yottosHideSiteMarker'])
         result['campaignTitle'] = campaign.get('title', 'NOT_TITLE')
         result['title'] = offer.get('title', 'NOT_TITLE')
-        yottosPartnerMarker = campaign.get('yottosPartnerMarker', True)
-        yottosTranslitMarker = campaign.get('yottosTranslitMarker', False)
-        yottosHideSiteMarker = campaign.get('yottosHideSiteMarker', False)
-        print "marker", [yottosPartnerMarker, yottosTranslitMarker, yottosHideSiteMarker]
-        result['marker'] = [yottosPartnerMarker, yottosTranslitMarker, yottosHideSiteMarker]
+        yottos_partner_marker = campaign.get('yottosPartnerMarker', True)
+        yottos_translit_marker = campaign.get('yottosTranslitMarker', False)
+        yottos_hide_site_marker = campaign.get('yottosHideSiteMarker', False)
+        print "marker", [yottos_partner_marker, yottos_translit_marker, yottos_hide_site_marker]
+        result['marker'] = [yottos_partner_marker, yottos_translit_marker, yottos_hide_site_marker]
         return result
     except (AttributeError, KeyError):
         return result
-    except pymongo.errors.AutoReconnect:
+    except errors.AutoReconnect:
         return result
 
 
