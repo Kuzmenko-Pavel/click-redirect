@@ -37,11 +37,12 @@ def _mongo_main_db():
 def _mongo_worker_db_pool():
     """Возвращает подключение к базе данных MongoDB Worker"""
     pool = []
-    now = datetime.datetime.now()
-    first_db = 'rg_%s' % now.hour
-    second_db = 'rg_%s' % (now - datetime.timedelta(minutes=60)).hour
-    mongo_worker_database = list([first_db, second_db])
-    mongo_worker_database.append('getmyad')
+    # now = datetime.datetime.now()
+    # first_db = 'rg_%s' % now.hour
+    # second_db = 'rg_%s' % (now - datetime.timedelta(minutes=60)).hour
+    # mongo_worker_database = list([first_db, second_db])
+    # mongo_worker_database.append('getmyad')
+    mongo_worker_database = list(['getmyad', ])
     for host in MONGO_WORKER_HOST_POOL:
         try:
             for base_name in mongo_worker_database:
