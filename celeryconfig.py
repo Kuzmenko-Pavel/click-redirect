@@ -3,7 +3,7 @@ import sys
 sys.path.append('.')
 
 
-BROKER_URL = 'pyamqp://click-redirect:123qwe@srv-4.yottos.com:5672/click-redirect'
+BROKER_URL = 'pyamqp://click-redirect:123qwe@amqp.yottos.com:5672/click-redirect'
 BROKER_CONNECTION_MAX_RETRIES = 0
 BROKER_HEARTBEAT = 0
 CELERY_TASK_IGNORE_RESULT = True
