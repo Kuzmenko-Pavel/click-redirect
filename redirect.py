@@ -89,9 +89,9 @@ def redirect(environ, start_response):
                 ip, cookie, token, offer_id, params.get('rand', ''))
 
         # Выделяем домен партнёра и добавляем его в целевой url
-        print "Выделяем домен партнёра и добавляем его в целевой url"
+        # print "Выделяем домен партнёра и добавляем его в целевой url"
         url = utm_converter(url, offer_id, campaign_id, inf_id, cookie)
-        print "Create Task"
+        # print "Create Task"
         try:
             tasks.process_click.delay(url=url,
                                       ip=ip,
@@ -231,7 +231,6 @@ def _add_dynamic_param(url, source, campaign, name, hide):
             value = value.replace('{rand}', str(random.randint(0, 1000000)))
             query[key] = value
         url_parts[4] = urllib.urlencode(query)
-    print url_parts
     return urlparse.urlunparse(url_parts)
 
 
@@ -316,7 +315,6 @@ def _get_offer_info(offer_id, campaign_id):
         yottos_partner_marker = campaign.get('yottosPartnerMarker', True)
         yottos_translit_marker = campaign.get('yottosTranslitMarker', False)
         yottos_hide_site_marker = campaign.get('yottosHideSiteMarker', False)
-        print "marker", [yottos_partner_marker, yottos_translit_marker, yottos_hide_site_marker]
         result['marker'] = [yottos_partner_marker, yottos_translit_marker, yottos_hide_site_marker]
         return result
     except (AttributeError, KeyError):
