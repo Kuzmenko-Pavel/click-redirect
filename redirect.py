@@ -78,9 +78,11 @@ def redirect(environ, start_response):
         print 'Token:', token
         valid = True if encrypt_decrypt(params.get('rand', ''), ip) == "valid" else False
         redirect_datetime = datetime.datetime.now()
-        view_seconds = int(params.get('t', 0)) / 1000
+        #TODO параметр t depricated, в будушем удалить
+        view_seconds = int(params.get('t', 0))
         if view_seconds == 0:
-            view_seconds = (int(params.get('tr', 0)) - int(time.time()*1000)) / 1000
+            view_seconds = (int(params.get('tr', 0)) - int(time.time()*1000))
+        view_seconds = view_seconds / 1000
         print "Valid click %s view_seconds in %s second" % (valid, view_seconds)
         if not valid:
             print "IP %s, cookie %s, token %s, offer id %s, validation -%s-" % (
