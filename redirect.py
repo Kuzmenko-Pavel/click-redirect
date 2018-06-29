@@ -81,7 +81,7 @@ def redirect(environ, start_response):
         #TODO параметр t depricated, в будушем удалить
         view_seconds = int(params.get('t', 0))
         if view_seconds == 0:
-            view_seconds = (int(params.get('tr', 0)) - int(time.time()*1000))
+            view_seconds = (int(time.time()*1000) - int(params.get('tr', int(time.time()*1000))))
         view_seconds = view_seconds / 1000
         print "Valid click %s view_seconds in %s second" % (valid, view_seconds)
         if not valid:
