@@ -313,7 +313,7 @@ def _get_offer_info(offer_id, campaign_id):
         result['campaignTitle'] = campaign.get('title', 'NOT_TITLE')
         result['title'] = offer.get('title', 'NOT_TITLE')
         yottos_partner_marker = campaign.get('yottosPartnerMarker', True)
-        yottos_translit_marker = campaign.get('yottosTranslitMarker', False)
+        yottos_translit_marker = True
         yottos_hide_site_marker = campaign.get('yottosHideSiteMarker', False)
         result['marker'] = [yottos_partner_marker, yottos_translit_marker, yottos_hide_site_marker]
         return result
