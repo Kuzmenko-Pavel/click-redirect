@@ -298,8 +298,15 @@ def process_click(url,
         return
 
     if not find:
-        print "Processed click from ip %s not found" % ip
+        print "Processed click from token %s not found" % token
         log_reject(u'Not found click')
+
+    if referer is None:
+        print "Without Referer"
+        log_reject(u'Without Referer')
+    if user_agent is None:
+        print "Without User Agent"
+        log_reject(u'Without User Agent')
 
     # Определяем кампанию, к которой относится предложение и т.п
     try:
@@ -354,10 +361,13 @@ def process_click(url,
         return
 
     # Ищём IP в чёрном списке
-    if db.blacklist.ip.find_one({'ip': ip, 'cookie': cookie}):
+    if db.blacklist.ip.find_one({'ip': ip}):
         error_id = 2
-        print "Blacklisted ip:", ip, cookie
+        print "Blacklisted ip:", ip
         log_reject("Blacklisted ip")
+        db.blacklist.ip.update_one({'ip': ip},
+                                   {'$set': {'dt': datetime.datetime.now()}},
+                                   upsert=True)
         return
 
     # Ищем, не было ли кликов по этому товару
@@ -366,26 +376,67 @@ def process_click(url,
     max_clicks_for_one_day = 3
     max_clicks_for_one_day_all = 5
     max_clicks_for_one_week = 10
-    max_clicks_for_one_week_all = 10
+    max_clicks_for_one_week_all = 15
+    ip_max_clicks_for_one_day = 6
+    ip_max_clicks_for_one_day_all = 10
+    ip_max_clicks_for_one_week = 20
+    ip_max_clicks_for_one_week_all = 30
     unique = True
+
     # Проверяе по рекламному блоку за день и неделю
     today_clicks = 0
     toweek_clicks = 0
+
+    # Проверяе по ПС за день и неделю
+    today_clicks_all = 0
+    toweek_clicks_all = 0
+
+    # Проверяе по рекламному блоку за день и неделю по ip
+    ip_today_clicks = 0
+    ip_toweek_clicks = 0
+
+    # Проверяе по ПС за день и неделю по ip
+    ip_today_clicks_all = 0
+    ip_toweek_clicks_all = 0
+
     cursor = db.clicks.find({
         'ip': ip,
-        'cookie': cookie,
         'inf': informer_id,
         'dt': {'$lte': click_datetime, '$gte': (click_datetime - datetime.timedelta(weeks=1))}
-    }).limit(max_clicks_for_one_day + max_clicks_for_one_week)
+    }).limit(ip_max_clicks_for_one_day_all + ip_max_clicks_for_one_week_all)
     for click in cursor:
-        if (click_datetime - click['dt']).days == 0:
-            today_clicks += 1
-            toweek_clicks += 1
-        else:
-            toweek_clicks += 1
+        if click.get('inf') == informer_id:
+            if click.get('cookie') == cookie:
+                if (click_datetime - click['dt']).days == 0:
+                    today_clicks += 1
+                    toweek_clicks += 1
+                else:
+                    toweek_clicks += 1
 
-        if click['offer'] == offer_id:
-            unique = False
+                if click['offer'] == offer_id:
+                    unique = False
+            else:
+                if (click_datetime - click['dt']).days == 0:
+                    ip_today_clicks += 1
+                    ip_toweek_clicks += 1
+                else:
+                    ip_toweek_clicks += 1
+        else:
+            if click.get('cookie') == cookie:
+                if (click_datetime - click['dt']).days == 0:
+                    today_clicks_all += 1
+                    toweek_clicks_all += 1
+                else:
+                    toweek_clicks_all += 1
+
+                if click['offer'] == offer_id:
+                    unique = False
+            else:
+                if (click_datetime - click['dt']).days == 0:
+                    ip_today_clicks_all += 1
+                    ip_toweek_clicks_all += 1
+                else:
+                    ip_toweek_clicks_all += 1
 
     print "Total clicks for day in informers = %s" % today_clicks
     if today_clicks >= max_clicks_for_one_day:
@@ -393,7 +444,7 @@ def process_click(url,
         log_reject(u'Более %d переходов с РБ за сутки' % max_clicks_for_one_day)
         unique = False
         print 'Many Clicks for day to informer'
-        db.blacklist.ip.update_one({'ip': ip, 'cookie': cookie},
+        db.blacklist.ip.update_one({'ip': ip},
                                    {'$set': {'dt': datetime.datetime.now()}},
                                    upsert=True)
 
@@ -403,23 +454,9 @@ def process_click(url,
         log_reject(u'Более %d переходов с РБ за неделю' % max_clicks_for_one_week)
         unique = False
         print 'Many Clicks for week to informer'
-        db.blacklist.ip.update_one({'ip': ip, 'cookie': cookie},
+        db.blacklist.ip.update_one({'ip': ip},
                                    {'$set': {'dt': datetime.datetime.now()}},
                                    upsert=True)
-    # Проверяе по ПС за день и неделю
-    today_clicks_all = 0
-    toweek_clicks_all = 0
-    for click in db.clicks.find({'ip': ip, 'cookie': cookie, 'dt': {'$lte': click_datetime, '$gte': (
-                click_datetime - datetime.timedelta(weeks=1))}}).limit(
-                max_clicks_for_one_week_all + max_clicks_for_one_day_all):
-        if (click_datetime - click['dt']).days == 0:
-            today_clicks_all += 1
-            toweek_clicks_all += 1
-        else:
-            toweek_clicks_all += 1
-
-        if click['offer'] == offer_id:
-            unique = False
 
     print "Total clicks for day in all partners = %s" % today_clicks_all
     if today_clicks_all >= max_clicks_for_one_day_all:
@@ -427,7 +464,7 @@ def process_click(url,
         log_reject(u'Более %d переходов с ПС за сутки' % max_clicks_for_one_day_all)
         unique = False
         print 'Many Clicks for day to all partners'
-        db.blacklist.ip.update_one({'ip': ip, 'cookie': cookie},
+        db.blacklist.ip.update_one({'ip': ip},
                                    {'$set': {'dt': datetime.datetime.now()}},
                                    upsert=True)
 
@@ -437,9 +474,50 @@ def process_click(url,
         log_reject(u'Более %d переходов с ПС за неделю' % max_clicks_for_one_week_all)
         unique = False
         print 'Many Clicks for week to all partners'
-        db.blacklist.ip.update_one({'ip': ip, 'cookie': cookie},
+        db.blacklist.ip.update_one({'ip': ip},
                                    {'$set': {'dt': datetime.datetime.now()}},
                                    upsert=True)
+
+    print "Total clicks for day in informers by ip = %s" % today_clicks
+    if ip_today_clicks >= ip_max_clicks_for_one_day:
+        error_id = 3
+        log_reject(u'Более %d переходов с РБ за сутки по ip' % ip_max_clicks_for_one_day)
+        unique = False
+        print 'Many Clicks for day to informer by ip'
+        db.blacklist.ip.update_one({'ip': ip},
+                                   {'$set': {'dt': datetime.datetime.now()}},
+                                   upsert=True)
+
+    print "Total clicks for week in informers by ip = %s" % toweek_clicks
+    if ip_toweek_clicks >= ip_max_clicks_for_one_week:
+        error_id = 4
+        log_reject(u'Более %d переходов с РБ за неделю по ip' % ip_max_clicks_for_one_week)
+        unique = False
+        print 'Many Clicks for week to informer by ip'
+        db.blacklist.ip.update_one({'ip': ip},
+                                   {'$set': {'dt': datetime.datetime.now()}},
+                                   upsert=True)
+
+    print "Total clicks for day in all partners by ip = %s" % today_clicks_all
+    if ip_today_clicks_all >=ip_max_clicks_for_one_day_all:
+        error_id = 5
+        log_reject(u'Более %d переходов с ПС за сутки по ip' % ip_max_clicks_for_one_day_all)
+        unique = False
+        print 'Many Clicks for day to all partners by ip'
+        db.blacklist.ip.update_one({'ip': ip},
+                                   {'$set': {'dt': datetime.datetime.now()}},
+                                   upsert=True)
+
+    print "Total clicks for week in all partners by ip = %s" % toweek_clicks_all
+    if ip_toweek_clicks_all >= ip_max_clicks_for_one_week_all:
+        error_id = 6
+        log_reject(u'Более %d переходов с ПС за неделю по ip' % ip_max_clicks_for_one_week_all)
+        unique = False
+        print 'Many Clicks for week to all partners by ip'
+        db.blacklist.ip.update_one({'ip': ip},
+                                   {'$set': {'dt': datetime.datetime.now()}},
+                                   upsert=True)
+
     cost_percent_click = check_block['cost_percent_click']
     if check_block['block']:
         print "Account block"

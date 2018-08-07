@@ -5,6 +5,7 @@ import base64
 import datetime
 import random
 import sys
+import re
 import time
 import urllib
 import urlparse
@@ -16,6 +17,8 @@ from pymongo import MongoClient, errors
 import tasks
 
 sys.stdout = sys.stderr
+
+BOTS_RE = re.compile('spider|pingdom|facebookexternalhit|phantomjs|casperjs|analyzer|daum|scanner|check|bot|okhttp|omgili|ltx71|curl|wget|newspaper|lipperhey|binlar|ahc|apache|proximic|embedly|http-client|preview|flipboard|parser|ips-agent|nutch|httrack|brandverity|fetch|httpunit|http_get|siteimprove|vkshare|siteexplorer|python|sentry|coccoc')
 
 MONGO_HOST = 'srv-5.yottos.com:27018,srv-5.yottos.com:27019,srv-5.yottos.com:27020'
 
@@ -42,8 +45,8 @@ def redirect(environ, start_response):
             start_response('200 OK', [('Content-type', 'text/plain')])
             return ""
         base64_encoded_params = environ['QUERY_STRING'].partition('&')[0]
-        referer = environ.get('HTTP_REFERER', 'None')
-        user_agent = environ.get('HTTP_USER_AGENT', 'None')
+        referer = environ.get('HTTP_REFERER', None)
+        user_agent = environ.get('HTTP_USER_AGENT', None)
         param_lines = base64.urlsafe_b64decode(base64_encoded_params).splitlines()
         params = dict([(x.partition('=')[0], x.partition('=')[2]) for x in param_lines])
         print params
@@ -63,10 +66,14 @@ def redirect(environ, start_response):
         print "REFERER ---"
         print referer
         if referer == 'None' or referer == '' or referer is None:
+            referer = None
             print environ
         print "REFERER ---"
         print "HTTP_USER_AGENT ---"
         print user_agent
+        if user_agent == 'None' or user_agent == '' or user_agent is None:
+            user_agent = None
+            print environ
         print "HTTP_USER_AGENT ---"
 
         # Проверяем действительность токена
@@ -77,6 +84,13 @@ def redirect(environ, start_response):
         token = params.get('token', '')
         print 'Token:', token
         valid = True if encrypt_decrypt(params.get('rand', ''), ip) == "valid" else False
+        if user_agent and valid:
+            if BOTS_RE.search(user_agent.lower()):
+                print "!!!!!!! BOT !!!!!!!!!"
+                valid = False
+        if referer != None and 'yottos.com' not in referer:
+            print "!!!!!!! FAKE REFFERER !!!!!!!!!"
+            valid = False
         redirect_datetime = datetime.datetime.now()
         #TODO параметр t depricated, в будушем удалить
         view_seconds = int(params.get('t', 0))
