@@ -341,19 +341,53 @@ def process_click(url,
 
     try:
         print "Token = %s" % token.encode('utf-8')
+    except Exception as e:
+        print e
+    try:
         print "Cookie = %s" % cookie
+    except Exception as e:
+        print e
+    try:
         print "IP = %s" % ip
+    except Exception as e:
+        print e
+    try:
         print "REFERER = %s" % referer.encode('utf-8')
+    except Exception as e:
+        print e
+    try:
         print "USER AGENT = %s" % user_agent.encode('utf-8')
+    except Exception as e:
+        print e
+    try:
         print "OfferId = %s" % offer_id.encode('utf-8')
+    except Exception as e:
+        print e
+    try:
         print "Informer = %s" % informer_id.encode('utf-8')
+    except Exception as e:
+        print e
+    try:
         print "CampaignId = %s" % campaign_id.encode('utf-8')
+    except Exception as e:
+        print e
+    try:
         print "Branch = %s" % branch
+    except Exception as e:
+        print e
+    try:
         print "User View-Click = %s" % view_seconds
+    except Exception as e:
+        print e
+    try:
         print "Manager = %s" % manager
+    except Exception as e:
+        print e
+    try:
         print "Manager G = %s" % manager_g
     except Exception as e:
         print e
+
     if not valid:
         error_id = 1
         log_reject(u'Не совпадает токен или ip')
