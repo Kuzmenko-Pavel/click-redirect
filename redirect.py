@@ -37,6 +37,7 @@ def redirect(environ, start_response):
 
     # Получаем словарь параметров
     try:
+        bad_user = None
         elapsed_start_time = datetime.datetime.now()
         # Отделяем дополнительные GET-параметры от основных,
         # закодированных в base64
@@ -84,12 +85,16 @@ def redirect(environ, start_response):
         token = params.get('token', '')
         print 'Token:', token
         valid = True if encrypt_decrypt(params.get('rand', ''), ip) == "valid" else False
+        if not valid:
+            bad_user = 'token'
         if user_agent and valid:
             if BOTS_RE.search(user_agent.lower()):
                 print "!!!!!!! BOT !!!!!!!!!"
+                bad_user = 'bt'
                 valid = False
         if referer != None and 'yottos.com' not in referer:
-            print "!!!!!!! FAKE REFFERER !!!!!!!!!"
+            print "!!!!!!! FAKE REFERER !!!!!!!!!"
+            bad_user = 'referer'
             valid = False
         redirect_datetime = datetime.datetime.now()
         #TODO параметр t depricated, в будушем удалить
@@ -102,9 +107,12 @@ def redirect(environ, start_response):
             print "IP %s, cookie %s, token %s, offer id %s, validation -%s-" % (
                 ip, cookie, token, offer_id, params.get('rand', ''))
 
+        if _ban_check(ip):
+            bad_user = 'bn'
+
         # Выделяем домен партнёра и добавляем его в целевой url
         # print "Выделяем домен партнёра и добавляем его в целевой url"
-        url = utm_converter(url, offer_id, campaign_id, inf_id, cookie)
+        url = utm_converter(url, offer_id, campaign_id, inf_id, cookie, bad_user)
         # print "Create Task"
         try:
             tasks.process_click.delay(url=url,
@@ -154,7 +162,7 @@ def char_replace(string, chars=None, to_char=None):
     return string
 
 
-def utm_converter(url, offer_id, campaign_id, inf_id, cookie):
+def utm_converter(url, offer_id, campaign_id, inf_id, cookie, bad_user):
     offer_info = _get_offer_info(offer_id, campaign_id)
     partner_domain = _get_informer(inf_id)
     offer_title = 'yottos-' + offer_info['title'].encode('utf-8')
@@ -169,10 +177,11 @@ def utm_converter(url, offer_id, campaign_id, inf_id, cookie):
     else:
         offer_title = urllib.quote(offer_title)
         offer_campaign_title = urllib.quote(offer_campaign_title)
-    url = _add_dynamic_param(url, partner_domain, offer_campaign_title, offer_title, offer_info['marker'][2])
+    url = _add_dynamic_param(url, partner_domain, offer_campaign_title, offer_title, offer_info['marker'][2],
+                             cookie, bad_user)
     if offer_info['marker'][0]:
         url = _add_utm_param(url, type, partner_domain, offer_campaign_title, offer_title, offer_info['marker'][2],
-                             cookie, offer_title_trans, offer_campaign_title_trans)
+                             offer_title_trans, offer_campaign_title_trans)
     print url
     return url
 
@@ -201,7 +210,7 @@ def _ful_trans(string):
     return f_trans
 
 
-def _add_dynamic_param(url, source, campaign, name, hide):
+def _add_dynamic_param(url, source, campaign, name, hide, cookie, bad_user):
     url_parts = list(urlparse.urlparse(url))
 
     params = dict(urlparse.parse_qsl(url_parts[3]))
@@ -244,11 +253,17 @@ def _add_dynamic_param(url, source, campaign, name, hide):
             value = value.replace('{offer_guid}', str(campaign))
             value = value.replace('{rand}', str(random.randint(0, 1000000)))
             query[key] = value
-        url_parts[4] = urllib.urlencode(query)
+    if 'yt_u_id' not in query:
+        query.update({'yt_u_id': cookie})
+    if bad_user is None:
+        query.update({'yt_u_g': 't'})
+    else:
+        query.update({'yt_u_b': bad_user})
+    url_parts[4] = urllib.urlencode(query)
     return urlparse.urlunparse(url_parts)
 
 
-def _add_utm_param(url, ad_type, source, campaign, name, hide, cookie, offer_title_trans, offer_campaign_title_trans):
+def _add_utm_param(url, ad_type, source, campaign, name, hide, offer_title_trans, offer_campaign_title_trans):
     url_parts = list(urlparse.urlparse(url))
 
     query = dict(urlparse.parse_qsl(url_parts[4]))
@@ -279,16 +294,28 @@ def _add_utm_param(url, ad_type, source, campaign, name, hide, cookie, offer_tit
         query.update({'utm_term': utm_term})
     if 'from' not in query:
         query.update({'from': 'Yottos'})
-    if 'yt_u_id' not in query:
-        query.update({'yt_u_id': cookie})
+
     # if '_openstat' not in query:
     #     query.update({'_openstat': ';'.join([utm_medium, offer_campaign_title_trans, offer_title_trans, utm_source])})
     url_parts[4] = urllib.urlencode(query)
     return urlparse.urlunparse(url_parts)
 
 
+def _ban_check(ip):
+    """ Проверяет в списке заблокированных """
+    result = False
+    try:
+        db = MongoClient(MONGO_HOST).getmyad_db
+        if db.blacklist.ip.find_one({'ip': ip}):
+            result = True
+    except (AttributeError, KeyError, errors.AutoReconnect) as e:
+        print(e)
+    return result
+
+
 def _get_informer(informer_id):
     """ Возвращает домен, к которому относится информер ``informer_id`` """
+    result = {'guid': 'None', 'guid_int': 'None', 'domain': 'None'}
     try:
         db = MongoClient(MONGO_HOST).getmyad_db
         inf = db.informer.find_one({'guid': informer_id})
@@ -296,23 +323,12 @@ def _get_informer(informer_id):
         guid_int = inf.get('guid_int')
         domain = inf.get('domain')
         domain = domain.replace('.', '_')
-        return {
-            'guid': str(guid),
-            'guid_int': str(guid_int),
-            'domain': str(domain.encode('utf8'))
-        }
-    except (AttributeError, KeyError):
-        return {
-            'guid': 'None',
-            'guid_int': 'None',
-            'domain': 'None'
-        }
-    except errors.AutoReconnect:
-        return {
-            'guid': 'None',
-            'guid_int': 'None',
-            'domain': 'None'
-        }
+        result['guid'] = str(guid)
+        result['guid_int'] = str(guid_int)
+        result['domain'] = str(domain.encode('utf8'))
+    except (AttributeError, KeyError, errors.AutoReconnect) as e:
+        print(e)
+    return result
 
 
 def _get_offer_info(offer_id, campaign_id):
@@ -330,11 +346,9 @@ def _get_offer_info(offer_id, campaign_id):
         yottos_translit_marker = True
         yottos_hide_site_marker = campaign.get('yottosHideSiteMarker', False)
         result['marker'] = [yottos_partner_marker, yottos_translit_marker, yottos_hide_site_marker]
-        return result
-    except (AttributeError, KeyError):
-        return result
-    except errors.AutoReconnect:
-        return result
+    except (AttributeError, KeyError, errors.AutoReconnect) as e:
+        print(e)
+    return result
 
 
 application = redirect
