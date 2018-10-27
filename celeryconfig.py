@@ -5,7 +5,6 @@ sys.path.append('.')
 
 BROKER_URL = 'pyamqp://click-redirect:123qwe@amqp.yottos.com:5672/click-redirect'
 BROKER_CONNECTION_MAX_RETRIES = 0
-BROKER_HEARTBEAT = 0
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_IMPORTS = ("tasks",)
 CELERY_TASK_RESULT_EXPIRES = 1
