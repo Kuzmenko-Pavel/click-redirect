@@ -3,6 +3,7 @@
 import datetime
 import pymssql
 import uuid
+import random
 
 import dateutil.parser
 import pymongo
@@ -313,6 +314,9 @@ def process_click(url,
         campaign = db.campaign.find_one({'guid': campaign_id}, {'manager': True, 'account': True, '_id': False})
         account_id = campaign.get('account', '')
         manager = campaign.get('manager', '').encode('utf-8')
+        if manager == 'Рома':
+            print('!!!!!!!!!!!!!!!!!!! Manager Рома Change !!!!!!!!!!!!!!!!!!!')
+            manager = random.choice(['Милана'])
         informer = db.informer.find_one({'guid': informer_id}, {'user': True, '_id': False})
         account_g = db.users.find_one({'login': informer['user']}, {'managerGet': 1,
                                                                     'blocked': 1,
