@@ -316,7 +316,7 @@ def process_click(url,
         manager = campaign.get('manager', '').encode('utf-8')
         if manager == 'Рома':
             print('!!!!!!!!!!!!!!!!!!! Manager Рома Change !!!!!!!!!!!!!!!!!!!')
-            manager = random.choice(['Милана'])
+            manager = random.choice(['Милана', 'Оксана', 'Милана'])
         informer = db.informer.find_one({'guid': informer_id}, {'user': True, '_id': False})
         account_g = db.users.find_one({'login': informer['user']}, {'managerGet': 1,
                                                                     'blocked': 1,
