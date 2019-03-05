@@ -402,7 +402,9 @@ def process_click(url,
         return
 
     # Ищём IP в чёрном списке
-    if not disable_filter:
+    if disable_filter:
+        print 'Disable Filter'
+    else:
         if db.blacklist.ip.find_one({'ip': ip}):
             error_id = 2
             print "Blacklisted ip:", ip
