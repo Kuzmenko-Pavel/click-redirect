@@ -78,7 +78,7 @@ def get_currency_cost(currency):
         return float(row['cost'])
 
 
-def add_click(offer_id, campaign_id, click_datetime=None, social=None, cost_percent_click=None):
+def add_click(offer_id, campaign_id, click_datetime=None, social=None, cost_percent_click=None, cost=None):
     """ Запись перехода на рекламное предложение ``offer_id`` с адреса
         ``ip`.
 
@@ -125,7 +125,7 @@ def add_click(offer_id, campaign_id, click_datetime=None, social=None, cost_perc
         social = int(social)
         try:
             with connection_adload.cursor(as_dict=True) as cursor:
-                cursor.callproc('ClickAdd', (offer_id, campaign_id, None, dt, social, cost_percent_click))
+                cursor.callproc('ClickAdd', (offer_id, campaign_id, None, dt, social, cost_percent_click, cost))
                 for row in cursor:
                     print row
                     click_cost = float(row.get('ClickCost', 0.0))
@@ -265,6 +265,7 @@ def process_click(url,
     find = False
     account_id = ''
     social = False
+    unique = True
     branch = 'L0'
     conformity = ''
     request = ''
@@ -297,10 +298,6 @@ def process_click(url,
     if test:
         print "Processed test click from ip %s" % ip
         return
-
-    if not find:
-        print "Processed click from token %s not found" % token
-        log_reject(u'Not found click')
 
     # Определяем кампанию, к которой относится предложение и т.п
     try:
@@ -339,10 +336,15 @@ def process_click(url,
     except Exception as e:
         print e
 
-    if referer is None:
+    if not find and not disable_filter:
+        print "Processed click from token %s not found" % token
+        log_reject(u'Not found click')
+
+    if referer is None and not disable_filter:
         print "Without Referer"
         log_reject(u'Without Referer')
-    if user_agent is None:
+
+    if user_agent is None and not disable_filter:
         print "Without User Agent"
         log_reject(u'Without User Agent')
 
@@ -425,7 +427,6 @@ def process_click(url,
         ip_max_clicks_for_one_day_all = 10
         ip_max_clicks_for_one_week = 20
         ip_max_clicks_for_one_week_all = 30
-        unique = True
 
         # Проверяе по рекламному блоку за день и неделю
         today_clicks = 0
