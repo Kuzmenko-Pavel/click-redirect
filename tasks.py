@@ -262,6 +262,7 @@ def process_click(url,
         'cost_percent_click': 100
     }
     disable_filter = False
+    external_cost = None
     find = False
     account_id = ''
     social = False
@@ -304,13 +305,23 @@ def process_click(url,
         campaign = db.campaign.find_one({'guid': campaign_id}, {'manager': True,
                                                                 'account': True,
                                                                 '_id': False,
-                                                                'showConditions.disable_filter': True})
+                                                                'showConditions.disable_filter': True,
+                                                                'price': True})
         account_id = campaign.get('account', '')
         manager = campaign.get('manager', '').encode('utf-8')
         informer = db.informer.find_one({'guid': informer_id}, {'user': True, '_id': False, 'disable_filter': True})
         disable_filter = informer.get('disable_filter', False)
         if not disable_filter:
             disable_filter = campaign.get('showConditions', {}).get('disable_filter', False)
+        price = campaign.get('price', {})
+        for k, v in price.iteritems():
+            if k == informer_id:
+                try:
+                    external_cost = float(v)
+                    print 'external_cost', external_cost
+                except Exception as e:
+                    print(e)
+
         account_g = db.users.find_one({'login': informer['user']}, {'managerGet': 1,
                                                                     'blocked': 1,
                                                                     'cost_percent_click': 1,
@@ -361,11 +372,11 @@ def process_click(url,
     except Exception as e:
         print e
     try:
-        print "REFERER = %s" % referer.encode('utf-8')
+        print "REFERER = %s" % referer.encode('utf-8') if referer else ''
     except Exception as e:
         print e
     try:
-        print "USER AGENT = %s" % user_agent.encode('utf-8')
+        print "USER AGENT = %s" % user_agent.encode('utf-8') if user_agent else ''
     except Exception as e:
         print e
     try:
@@ -585,7 +596,8 @@ def process_click(url,
     try:
         if unique:
             print "Adload request"
-            adload_response = add_click(offer_id, campaign_id, click_datetime.isoformat(), social, cost_percent_click)
+            adload_response = add_click(offer_id, campaign_id, click_datetime.isoformat(), social, cost_percent_click,
+                                        external_cost)
             adload_ok = adload_response.get('ok', False)
             print "Adload OK - %s" % adload_ok
             if not adload_ok and 'error' in adload_response:
