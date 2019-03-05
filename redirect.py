@@ -319,13 +319,14 @@ def _get_informer(informer_id):
     try:
         db = MongoClient(MONGO_HOST).getmyad_db
         inf = db.informer.find_one({'guid': informer_id})
-        guid = inf.get('guid')
-        guid_int = inf.get('guid_int')
-        domain = inf.get('domain')
-        domain = domain.replace('.', '_')
-        result['guid'] = str(guid)
-        result['guid_int'] = str(guid_int)
-        result['domain'] = str(domain.encode('utf8'))
+        if inf:
+            guid = inf.get('guid')
+            guid_int = inf.get('guid_int')
+            domain = inf.get('domain')
+            domain = domain.replace('.', '_')
+            result['guid'] = str(guid)
+            result['guid_int'] = str(guid_int)
+            result['domain'] = str(domain.encode('utf8'))
     except (AttributeError, KeyError, errors.AutoReconnect) as e:
         print(e)
     return result
@@ -340,12 +341,13 @@ def _get_offer_info(offer_id, campaign_id):
         offer = db.offer.find_one({'guid': offer_id}, ['title'])
         campaign = db.campaign.find_one({'guid': campaign_id}, ['title', 'yottosPartnerMarker', 'yottosTranslitMarker',
                                                                 'yottosHideSiteMarker'])
-        result['campaignTitle'] = campaign.get('title', 'NOT_TITLE')
-        result['title'] = offer.get('title', 'NOT_TITLE')
-        yottos_partner_marker = campaign.get('yottosPartnerMarker', True)
-        yottos_translit_marker = True
-        yottos_hide_site_marker = campaign.get('yottosHideSiteMarker', False)
-        result['marker'] = [yottos_partner_marker, yottos_translit_marker, yottos_hide_site_marker]
+        if offer and campaign:
+            result['campaignTitle'] = campaign.get('title', 'NOT_TITLE')
+            result['title'] = offer.get('title', 'NOT_TITLE')
+            yottos_partner_marker = campaign.get('yottosPartnerMarker', True)
+            yottos_translit_marker = True
+            yottos_hide_site_marker = campaign.get('yottosHideSiteMarker', False)
+            result['marker'] = [yottos_partner_marker, yottos_translit_marker, yottos_hide_site_marker]
     except (AttributeError, KeyError, errors.AutoReconnect) as e:
         print(e)
     return result
