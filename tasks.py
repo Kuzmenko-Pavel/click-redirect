@@ -4,6 +4,8 @@ import datetime
 import pymssql
 import uuid
 
+from mq import MQ
+
 import dateutil.parser
 import pymongo
 from celery.task import task
@@ -198,7 +200,8 @@ def process_click(url,
                   referer,
                   user_agent,
                   cookie,
-                  view_seconds):
+                  view_seconds,
+                  cid):
     """ Обработка клика пользователя по рекламному предложению.
 
         Задача ставится в очередь скриптом redirect.py или выполняется
@@ -633,7 +636,8 @@ def process_click(url,
                  "adload_manager": manager,
                  "getmyad_manager": manager_g,
                  "view_seconds": view_seconds,
-                 "request": request
+                 "request": request,
+                 'cid': cid
                  }
     if not social and adload_ok:
         cost = _partner_click_cost(db, informer_id, adload_cost) if unique else 0
@@ -646,6 +650,22 @@ def process_click(url,
         print "No click"
         return
     db.clicks.insert_one(click_obj)
-
+    try:
+        amqp = MQ()
+        amqp.click(url=url,
+                   ip=ip,
+                   click_datetime=click_datetime,
+                   offer_id=offer_id,
+                   campaign_id=campaign_id,
+                   informer_id=informer_id,
+                   token=token,
+                   referer=referer,
+                   user_agent=user_agent,
+                   account_id=account_id,
+                   adload_cost=adload_cost,
+                   cid=cid
+                   )
+    except Exception as ex:
+        print ex
     print "Click complite"
     print "/----------------------------------------------------------------------/"
