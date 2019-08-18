@@ -654,7 +654,7 @@ def process_click(url,
         amqp = MQ()
         amqp.click(url=url,
                    ip=ip,
-                   click_datetime=click_datetime,
+                   click_datetime=click_datetime.strftime("%Y-%m-%d %H:%M:%S.%f"),
                    offer_id=offer_id,
                    campaign_id=campaign_id,
                    informer_id=informer_id,
