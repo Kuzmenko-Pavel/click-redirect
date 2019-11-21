@@ -10,7 +10,7 @@ import dateutil.parser
 import pymongo
 from celery.task import task
 
-MONGO_HOST = 'srv-5.yottos.com:27018,srv-5.yottos.com:27019,srv-5.yottos.com:27020'
+MONGO_HOST = 'srv-3.yottos.com:27017'
 
 MONGO_WORKER_HOST_POOL = ['srv-2.yottos.com:27017']
 

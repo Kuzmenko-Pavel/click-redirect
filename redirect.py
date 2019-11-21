@@ -21,7 +21,7 @@ sys.stdout = sys.stderr
 
 BOTS_RE = re.compile('spider|pingdom|facebookexternalhit|phantomjs|casperjs|analyzer|daum|scanner|check|bot|okhttp|omgili|ltx71|curl|wget|newspaper|lipperhey|binlar|ahc|apache|proximic|embedly|http-client|preview|flipboard|parser|ips-agent|nutch|httrack|brandverity|fetch|httpunit|http_get|siteimprove|vkshare|siteexplorer|python|sentry|coccoc')
 
-MONGO_HOST = 'srv-5.yottos.com:27018,srv-5.yottos.com:27019,srv-5.yottos.com:27020'
+MONGO_HOST = 'srv-3.yottos.com:27017'
 
 
 def redirect(environ, start_response):
